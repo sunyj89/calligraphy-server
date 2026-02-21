@@ -1,0 +1,6 @@
+.worktrees/
+worktrees/
+__pycache__/
+*.pyc
+.env
+poetry.lock
