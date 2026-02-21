@@ -1,0 +1,36 @@
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+
+class LoginRequest(BaseModel):
+    phone: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    teacher: Optional['TeacherResponse'] = None
+
+
+class TeacherResponse(BaseModel):
+    id: str
+    name: str
+    phone: str
+    avatar: Optional[str] = None
+    role: str
+    password_changed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class ChangePasswordResponse(BaseModel):
+    message: str
