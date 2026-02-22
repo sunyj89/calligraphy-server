@@ -5,3 +5,5 @@ __pycache__/
 .env
 poetry.lock
 uploads/
+CLAUDE.md
+docs/
