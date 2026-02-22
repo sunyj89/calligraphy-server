@@ -14,6 +14,14 @@ SCORE_CONFIG = {
     "fruit": {"field": "fruit_count", "weight": 100},
 }
 
+# 前端使用的别名映射到后端类型
+SCORE_TYPE_ALIASES = {
+    "basic": "root",
+    "homework": "leaf",
+    "competition": "fruit",
+    "adjustment": None,  # adjustment 直接加减 total_score
+}
+
 GROWTH_STAGES = {
     'sprout': (0, 1499),
     'seedling': (1500, 2999),
@@ -40,7 +48,42 @@ async def add_score(
     reason: Optional[str],
     db: AsyncSession
 ) -> ScoreRecord:
-    if score_type not in SCORE_CONFIG:
+    # 处理前端别名映射
+    resolved_type = score_type
+    if score_type in SCORE_TYPE_ALIASES:
+        resolved_type = SCORE_TYPE_ALIASES[score_type]
+
+    # adjustment 类型直接加减 total_score
+    if resolved_type is None:
+        result = await db.execute(select(Student).where(Student.id == student_id))
+        student = result.scalar_one_or_none()
+        if not student:
+            raise NotFoundException("学员不存在")
+
+        new_total = max(0, student.total_score + score)
+        await db.execute(
+            update(Student)
+            .where(Student.id == student_id)
+            .values(
+                total_score=new_total,
+                stage=calculate_stage(new_total),
+                updated_at=datetime.now(timezone.utc)
+            )
+        )
+
+        record = ScoreRecord(
+            student_id=student_id,
+            teacher_id=teacher_id,
+            score_type=score_type,
+            score=score,
+            reason=reason
+        )
+        db.add(record)
+        await db.commit()
+        await db.refresh(record)
+        return record
+
+    if resolved_type not in SCORE_CONFIG:
         raise BadRequestException("无效的积分类型")
     
     result = await db.execute(select(Student).where(Student.id == student_id))
@@ -48,7 +91,7 @@ async def add_score(
     if not student:
         raise NotFoundException("学员不存在")
     
-    config = SCORE_CONFIG[score_type]
+    config = SCORE_CONFIG[resolved_type]
     field = config["field"]
     weight = config["weight"]
     

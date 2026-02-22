@@ -50,6 +50,17 @@ async def get_current_teacher(
     return teacher
 
 
+async def get_current_admin(
+    teacher: Teacher = Depends(get_current_teacher),
+) -> Teacher:
+    if teacher.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    return teacher
+
+
 async def get_current_student(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),

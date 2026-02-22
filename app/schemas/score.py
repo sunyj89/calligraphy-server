@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class ScoreCreate(BaseModel):
@@ -10,9 +11,9 @@ class ScoreCreate(BaseModel):
 
 
 class ScoreResponse(BaseModel):
-    id: str
-    student_id: str
-    teacher_id: str
+    id: UUID
+    student_id: UUID
+    teacher_id: UUID
     score_type: str
     score: int
     reason: Optional[str] = None

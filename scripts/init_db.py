@@ -3,6 +3,11 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from app.models.base import Base
 from app.models.user import Teacher
 from app.models.book import Book
+from app.models.student import Student  # noqa: F401 - ensure table is registered
+from app.models.score_record import ScoreRecord  # noqa: F401 - ensure table is registered
+from app.models.work import Work  # noqa: F401 - ensure table is registered
+from app.models.classroom import Classroom  # noqa: F401 - ensure table is registered
+from app.models.audit_log import AuditLog  # noqa: F401 - ensure table is registered
 from app.core.security import hash_password
 from app.core.config import settings
 

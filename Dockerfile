@@ -1,12 +1,3 @@
-FROM python:3.10-slim as builder
-
-RUN pip install poetry
-
-WORKDIR /app
-
-COPY pyproject.toml poetry.lock* ./
-RUN poetry config virtualenvs.create false && poetry install --no-dev
-
 FROM python:3.10-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,8 +6,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn[standard] \
+    sqlalchemy[asyncio] \
+    asyncpg \
+    alembic \
+    pydantic \
+    pydantic-settings \
+    pyjwt \
+    bcrypt \
+    redis \
+    httpx \
+    pycryptodome \
+    loguru \
+    python-multipart \
+    passlib
 
 COPY app /app/app
 COPY alembic /app/alembic

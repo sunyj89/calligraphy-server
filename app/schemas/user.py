@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class LoginRequest(BaseModel):
@@ -15,7 +16,7 @@ class LoginResponse(BaseModel):
 
 
 class TeacherResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     phone: str
     avatar: Optional[str] = None
@@ -34,3 +35,7 @@ class ChangePasswordRequest(BaseModel):
 
 class ChangePasswordResponse(BaseModel):
     message: str
+
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None

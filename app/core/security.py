@@ -1,21 +1,19 @@
 from typing import Optional
 import jwt
 from datetime import datetime, timezone, timedelta
-from passlib.context import CryptContext
+import bcrypt
 import uuid
 from app.core.config import settings
 
 ALGORITHM = "HS256"
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def create_jwt(data: dict, expires_delta: Optional[int] = None) -> str:

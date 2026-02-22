@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class StudentCreate(BaseModel):
@@ -22,7 +23,7 @@ class StudentUpdate(BaseModel):
 
 
 class StudentResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     phone: Optional[str] = None
     avatar: Optional[str] = None

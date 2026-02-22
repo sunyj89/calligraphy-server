@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.base import get_db
 from app.api.dependencies import get_current_teacher
 from app.models.user import Teacher
-from app.schemas.user import LoginRequest, LoginResponse, ChangePasswordRequest
+from app.schemas.user import LoginRequest, LoginResponse, ChangePasswordRequest, TeacherResponse, UpdateProfileRequest
 from app.services import auth_service
 from app.core.security import decode_jwt, add_to_blacklist
 from app.core.redis import get_redis
@@ -26,7 +26,7 @@ async def logout(
     return {"message": "退出成功"}
 
 
-@router.get("/me")
+@router.get("/me", response_model=TeacherResponse)
 async def get_me(current_teacher: Teacher = Depends(get_current_teacher)):
     return current_teacher
 
@@ -44,3 +44,16 @@ async def change_password(
         db
     )
     return result
+
+
+@router.put("/profile", response_model=TeacherResponse)
+async def update_profile(
+    request: UpdateProfileRequest,
+    current_teacher: Teacher = Depends(get_current_teacher),
+    db: AsyncSession = Depends(get_db)
+):
+    if request.name is not None:
+        current_teacher.name = request.name
+    await db.commit()
+    await db.refresh(current_teacher)
+    return current_teacher
