@@ -8,7 +8,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -19,7 +19,7 @@ services:
     image: redis:7-alpine
     command: redis-server --requirepass redis_password
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,18 +30,16 @@ services:
 
   app:
     build: .
-    ports:
-      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/calligraphy_db
       - REDIS_URL=redis://:redis_password@redis:6379/0
       - REDIS_PASSWORD=redis_password
-      - SECRET_KEY=production-secret-key-change-me
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
       - WECHAT_APPID=${WECHAT_APPID:-mock_appid}
       - WECHAT_SECRET=${WECHAT_SECRET:-mock_secret}
       - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost:5173"]}
-      - ENVIRONMENT=development
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       db:
         condition: service_healthy
@@ -55,7 +53,6 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - uploads:/app/uploads
     depends_on:
       - app

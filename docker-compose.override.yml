@@ -1,0 +1,10 @@
+# 本地开发自动加载，无需手动指定
+services:
+  app:
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  nginx:
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - uploads:/app/uploads
