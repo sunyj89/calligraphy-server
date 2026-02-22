@@ -6,4 +6,12 @@ __pycache__/
 poetry.lock
 uploads/
 CLAUDE.md
+AGENTS.md
+AGENTS_CN.md
 docs/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
