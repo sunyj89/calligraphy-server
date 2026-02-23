@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.models import Student, Teacher, Book, Classroom, ScoreRecord, Work, AuditLog, SmsCode
 
 
 @pytest.fixture

@@ -71,11 +71,27 @@ async def init_db():
             book = Book(**book_data)
             session.add(book)
         
+        student = Student(
+            name="测试学生",
+            phone="13700000000",
+            password_hash=hash_password("test123456"),
+            total_score=4587,
+            root_score=2000,
+            trunk_score=1500,
+            leaf_count=8,
+            fruit_count=1,
+            stage="small",
+            is_senior=False,
+            ever_reached_senior=False,
+        )
+        session.add(student)
+        
         await session.commit()
     
     print("数据库初始化完成！")
     print(f"默认管理员账号: 手机号 13900000000, 密码 admin123")
     print(f"默认教师账号: 手机号 13800000000, 密码 teacher123")
+    print(f"测试学生账号: 手机号 13700000000, 密码 test123456, 初始积分 4587")
     print(f"已创建 {len(BOOKS_DATA)} 册练习册")
     
     await engine.dispose()

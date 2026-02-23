@@ -1,6 +1,6 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
+from datetime import datetime, timezone, date
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Date
 from sqlalchemy.dialects.postgresql import UUID
 from app.models.base import Base
 
@@ -17,6 +17,8 @@ class Student(Base):
     address = Column(String(255))
     school = Column(String(100))
     grade = Column(String(50))
+    gender = Column(String(10))
+    birthday = Column(Date)
     total_score = Column(Integer, default=0)
     root_score = Column(Integer, default=0)
     trunk_score = Column(Integer, default=0)
@@ -31,3 +33,8 @@ class Student(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     last_active = Column(DateTime(timezone=True), nullable=True)
+    
+    password_hash = Column(String(100))
+    password_changed_at = Column(DateTime(timezone=True))
+    consecutive_days = Column(Integer, default=0)
+    last_checkin_date = Column(Date)
