@@ -207,3 +207,27 @@ async def get_leaderboard(
         }
         for i, s in enumerate(students)
     ]
+
+
+async def get_student_by_phone(phone: str, db: AsyncSession) -> Student:
+    """根据手机号获取学生"""
+    result = await db.execute(select(Student).where(Student.phone == phone))
+    student = result.scalar_one_or_none()
+    if not student:
+        raise NotFoundException("学员不存在")
+    return student
+
+
+async def update_student_profile(student_id: str, data: dict, db: AsyncSession) -> Student:
+    """更新学生个人信息"""
+    result = await db.execute(select(Student).where(Student.id == student_id))
+    student = result.scalar_one()
+    
+    for key, value in data.items():
+        if value is not None and hasattr(student, key):
+            setattr(student, key, value)
+    
+    student.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(student)
+    return student
