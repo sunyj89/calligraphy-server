@@ -9,13 +9,13 @@ export const GROWTH_STAGES: {
   maxScore: number
   image: string
 }[] = [
-  { key: 'sprout', name: '萌芽宝宝', range: '0-1499', minScore: 0, maxScore: 1499, image: '/images/tree/stage1-sprout.png' },
-  { key: 'seedling', name: '努力伸腰', range: '1500-2999', minScore: 1500, maxScore: 2999, image: '/images/tree/stage2-growing.png' },
-  { key: 'small', name: '撑起小伞', range: '3000-4499', minScore: 3000, maxScore: 4499, image: '/images/tree/stage3-umbrella.png' },
-  { key: 'medium', name: '有模有样', range: '4500-5999', minScore: 4500, maxScore: 5999, image: '/images/tree/stage4-shaped.png' },
-  { key: 'large', name: '披上绿袍', range: '6000-7499', minScore: 6000, maxScore: 7499, image: '/images/tree/stage5-green.png' },
-  { key: 'xlarge', name: '绿意满满', range: '7500-8999', minScore: 7500, maxScore: 8999, image: '/images/tree/stage6-lush.png' },
-  { key: 'fruitful', name: '硕果累累', range: '9000+', minScore: 9000, maxScore: Infinity, image: '/images/tree/stage7-fruit.png' },
+  { key: 'sprout', name: '萌芽宝宝', range: '0-1499', minScore: 0, maxScore: 1499, image: `${import.meta.env.BASE_URL}images/tree/stage1-sprout.webp` },
+  { key: 'seedling', name: '努力伸腰', range: '1500-2999', minScore: 1500, maxScore: 2999, image: `${import.meta.env.BASE_URL}images/tree/stage2-growing.webp` },
+  { key: 'small', name: '撑起小伞', range: '3000-4499', minScore: 3000, maxScore: 4499, image: `${import.meta.env.BASE_URL}images/tree/stage3-umbrella.webp` },
+  { key: 'medium', name: '有模有样', range: '4500-5999', minScore: 4500, maxScore: 5999, image: `${import.meta.env.BASE_URL}images/tree/stage4-shaped.webp` },
+  { key: 'large', name: '披上绿袍', range: '6000-7499', minScore: 6000, maxScore: 7499, image: `${import.meta.env.BASE_URL}images/tree/stage5-green.webp` },
+  { key: 'xlarge', name: '绿意满满', range: '7500-8999', minScore: 7500, maxScore: 8999, image: `${import.meta.env.BASE_URL}images/tree/stage6-lush.webp` },
+  { key: 'fruitful', name: '硕果累累', range: '9000+', minScore: 9000, maxScore: Infinity, image: `${import.meta.env.BASE_URL}images/tree/stage7-fruit.webp` },
 ]
 
 // 积分类型颜色映射

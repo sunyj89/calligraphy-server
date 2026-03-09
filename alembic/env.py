@@ -4,11 +4,17 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 import asyncio
+import os
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Override sqlalchemy.url from environment variable if set
+db_url = os.environ.get("DATABASE_URL")
+if db_url:
+    config.set_main_option("sqlalchemy.url", db_url)
 
 from app.models.base import Base
 from app.models.user import Teacher
@@ -16,6 +22,7 @@ from app.models.student import Student
 from app.models.book import Book
 from app.models.score_record import ScoreRecord
 from app.models.work import Work
+from app.models.sms_code import SmsCode
 
 target_metadata = Base.metadata
 

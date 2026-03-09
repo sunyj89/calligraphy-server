@@ -47,4 +47,4 @@ export const router = createBrowserRouter([
       { path: '/settings/contact', element: <ContactUsPage /> },
     ],
   },
-])
+], { basename: '/h5/' })

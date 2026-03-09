@@ -65,7 +65,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (response.status === 401) {
     clearToken()
-    window.location.href = '/'
+    window.location.href = `${import.meta.env.BASE_URL}login`
     throw new Error('登录已过期，请重新登录')
   }
 

@@ -99,7 +99,7 @@ export function ProfilePage() {
       {/* 退出登录 */}
       <div className="px-5 py-4">
         <button
-          onClick={() => { logout(); navigate('/') }}
+          onClick={() => { logout(); navigate('/login') }}
           className="w-full h-11 rounded-input border border-border text-sm text-text-tertiary font-medium"
         >
           退出登录
