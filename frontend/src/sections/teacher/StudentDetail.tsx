@@ -1,404 +1,380 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, BookOpen, TreePine, Leaf, History, CheckCircle, AlertCircle, Award, Image, Trash2, Upload } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Medal, Upload, Users } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import type { Student, GrowthStage, Work } from '@/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
-import { useScoreSystem, deriveTitle } from '@/hooks/useScoreSystem';
+import { deriveTitle, getScoreTypeLabel } from '@/hooks/useScoreSystem';
+import type { PracticeTarget, Student, Term, Work } from '@/types';
 
-const stageImageMap: Record<GrowthStage, string> = {
-  sprout: '/images/stage01.png',
-  seedling: '/images/stage02.png',
-  small: '/images/stage03.png',
-  medium: '/images/stage04.png',
-  large: '/images/stage05.png',
-  xlarge: '/images/stage06.png',
-  fruitful: '/images/stage07.png',
-};
-
-interface BackendBook {
+interface Book {
   id: string;
   name: string;
   orderNum: number;
 }
 
-interface StudentDetailProps {
+interface Props {
   student: Student;
   onBack: () => void;
   onStudentUpdated?: (student: Student) => void;
 }
 
-export function StudentDetail({ student, onBack, onStudentUpdated }: StudentDetailProps) {
-  const { teacher } = useAuth();
-  const { student: currentStudent, records, isLoading, loadRecords, addBasicPracticeScore, addHomeworkScore, addCompetitionScore, addAdjustment } = useScoreSystem(student);
-  const [activeTab, setActiveTab] = useState('basic');
-  const [books, setBooks] = useState<BackendBook[]>([]);
+export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [records, setRecords] = useState<any[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
-  const [previewWork, setPreviewWork] = useState<string | null>(null);
+  const [term, setTerm] = useState<Term>('spring');
+  const [bookId, setBookId] = useState('');
+  const [practiceTarget, setPracticeTarget] = useState<PracticeTarget>('root');
+  const [practiceScore, setPracticeScore] = useState<5 | 20 | 50 | 70>(50);
+  const [practiceRemark, setPracticeRemark] = useState('');
+  const [homeworkName, setHomeworkName] = useState('');
+  const [homeworkScore, setHomeworkScore] = useState(10);
+  const [competitionName, setCompetitionName] = useState('');
+  const [competitionScore, setCompetitionScore] = useState(80);
+  const [workSlot, setWorkSlot] = useState<1 | 2>(1);
+  const [workScore, setWorkScore] = useState(80);
+  const [workScope, setWorkScope] = useState<'classroom' | 'school' | 'both'>('classroom');
+  const [workDesc, setWorkDesc] = useState('');
+  const [classRank, setClassRank] = useState<number | null>(null);
+  const [schoolRank, setSchoolRank] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [basicForm, setBasicForm] = useState({ bookId: '', score: 50 as 5 | 20 | 50, remark: '' });
-  const [homeworkForm, setHomeworkForm] = useState({ name: '', score: 2 });
-  const [competitionForm, setCompetitionForm] = useState({ name: '', score: 40 });
-  const [adjustmentForm, setAdjustmentForm] = useState({ type: '', score: 0, reason: '' });
+  const selectedBook = useMemo(() => books.find((item) => item.id === bookId), [bookId, books]);
+
+  async function reload() {
+    const [bookRes, scoreRes, workRes, studentRes, classLb, schoolLb] = await Promise.all([
+      api.getBooks(),
+      api.getStudentScores(student.id, 1, 100, undefined, term),
+      api.getStudentWorks(student.id, 1, 20, term),
+      api.getStudent(student.id),
+      student.classroomId ? api.getLeaderboard(100, student.classroomId) : Promise.resolve([]),
+      api.getSchoolLeaderboard(100),
+    ]);
+
+    setBooks(bookRes.items as Book[]);
+    setRecords(scoreRes.items);
+    setWorks(workRes.items);
+    if (!bookId && bookRes.items.length > 0) setBookId(bookRes.items[0].id);
+    setClassRank(classLb.findIndex((item) => item.id === student.id) + 1 || null);
+    setSchoolRank(schoolLb.findIndex((item) => item.id === student.id) + 1 || null);
+    onStudentUpdated?.(studentRes);
+  }
 
   useEffect(() => {
-    loadRecords(student.id);
-    api.getBooks().then(res => {
-      setBooks(res.items);
-      setBasicForm(prev => (
-        prev.bookId || res.items.length === 0
-          ? prev
-          : { ...prev, bookId: res.items[0].id }
-      ));
-    }).catch(() => {});
-    api.getStudentWorks(student.id, 1, 50).then(res => {
-      setWorks(res.items as unknown as Work[]);
-    }).catch(() => {});
-  }, [student.id, loadRecords]);
+    void reload();
+  }, [student.id, term]);
 
-  const refreshAndNotify = async () => {
-    const updated = await api.getStudent(student.id);
-    onStudentUpdated?.(updated);
-  };
-
-  const handleUploadWork = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function submitPractice() {
+    if (!bookId) return;
+    setIsSubmitting(true);
     try {
-      const { url } = await api.uploadImage(file);
-      await api.createWork(student.id, { imageUrl: url });
-      const res = await api.getStudentWorks(student.id, 1, 50);
-      setWorks(res.items as unknown as Work[]);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '上传失败');
+      await api.addPracticeScore(student.id, {
+        score: practiceScore,
+        term,
+        bookId,
+        targetPart: practiceTarget,
+        reason: practiceRemark || `${selectedBook?.name || '练习册'}录分`,
+      });
+      setPracticeRemark('');
+      await reload();
+    } finally {
+      setIsSubmitting(false);
     }
-    e.target.value = '';
-  };
+  }
 
-  const handleDeleteWork = async (workId: string) => {
-    if (!confirm('确认删除该作品？')) return;
+  async function submitHomework() {
+    setIsSubmitting(true);
     try {
-      await api.deleteWork(workId);
-      setWorks(prev => prev.filter(w => w.id !== workId));
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '删除失败');
+      await api.addHomeworkScore(student.id, {
+        score: homeworkScore,
+        term,
+        reason: homeworkName || '作业录分',
+      });
+      setHomeworkName('');
+      setHomeworkScore(10);
+      await reload();
+    } finally {
+      setIsSubmitting(false);
     }
-  };
+  }
 
-  const handleBasicSubmit = async () => {
-    if (await addBasicPracticeScore(basicForm)) {
-      setBasicForm(prev => ({ ...prev, remark: '' }));
-      refreshAndNotify();
+  async function submitCompetition() {
+    setIsSubmitting(true);
+    try {
+      await api.addCompetitionScore(student.id, {
+        name: competitionName || '比赛录分',
+        score: competitionScore,
+        term,
+      });
+      setCompetitionName('');
+      setCompetitionScore(80);
+      await reload();
+    } finally {
+      setIsSubmitting(false);
     }
-  };
+  }
 
-  const handleHomeworkSubmit = async () => {
-    if (await addHomeworkScore(homeworkForm)) {
-      setHomeworkForm({ name: '', score: 2 });
-      refreshAndNotify();
+  async function uploadWork(file: File) {
+    setIsSubmitting(true);
+    try {
+      const uploaded = await api.uploadImage(file);
+      await api.createWork(student.id, {
+        imageUrl: uploaded.url,
+        description: workDesc || undefined,
+        score: workScore,
+        term,
+        slotIndex: workSlot,
+        galleryScope: workScope,
+      });
+      setWorkDesc('');
+      await reload();
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  const handleCompetitionSubmit = async () => {
-    if (await addCompetitionScore(competitionForm)) {
-      setCompetitionForm({ name: '', score: 40 });
-      refreshAndNotify();
-    }
-  };
-
-  const handleAdjustmentSubmit = async () => {
-    if (await addAdjustment(adjustmentForm)) {
-      setAdjustmentForm({ type: '', score: 0, reason: '' });
-      refreshAndNotify();
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'basic': case 'root': case 'trunk': return 'bg-blue-100 text-blue-600';
-      case 'homework': case 'leaf': return 'bg-green-100 text-green-600';
-      case 'competition': case 'fruit': return 'bg-amber-100 text-amber-600';
-      case 'adjustment': return 'bg-red-100 text-red-600';
-      default: return 'bg-gray-100 text-gray-600';
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'basic': case 'root': case 'trunk': return '基础练习';
-      case 'homework': case 'leaf': return '日常作业';
-      case 'competition': case 'fruit': return '比赛作品';
-      case 'adjustment': return '积分调整';
-      default: return type;
-    }
-  };
+  }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right duration-500">
-      <Button variant="ghost" onClick={onBack} className="mb-4">
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        返回学员列表
+    <div className="space-y-4">
+      <Button variant="ghost" onClick={onBack}>
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        返回学生列表
       </Button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <Avatar className="w-16 h-16">
-                  <AvatarImage src={currentStudent.avatar} />
-                  <AvatarFallback>{currentStudent.name[0]}</AvatarFallback>
-                </Avatar>
+      <Card>
+        <CardHeader>
+          <CardTitle>{student.name}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-lg bg-slate-50 p-3">
+            <div className="text-sm text-slate-500">手机号</div>
+            <div className="mt-1 font-medium">{student.phone}</div>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <div className="text-sm text-slate-500">累计总分</div>
+            <div className="mt-1 text-xl font-bold text-green-600">{student.totalScore}</div>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <div className="text-sm text-slate-500">班级排名</div>
+            <div className="mt-1 flex items-center gap-1 font-medium">
+              <Users className="h-4 w-4 text-blue-500" />
+              {classRank ? `第 ${classRank} 名` : '暂无'}
+            </div>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <div className="text-sm text-slate-500">学校排名</div>
+            <div className="mt-1 flex items-center gap-1 font-medium">
+              <Medal className="h-4 w-4 text-amber-500" />
+              {schoolRank ? `第 ${schoolRank} 名` : '暂无'}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>本学期操作</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="max-w-xs">
+            <Label>学期</Label>
+            <Select value={term} onValueChange={(value) => setTerm(value as Term)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="spring">春季</SelectItem>
+                <SelectItem value="summer">暑假</SelectItem>
+                <SelectItem value="autumn">秋季</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Tabs defaultValue="practice">
+            <TabsList className="grid grid-cols-4">
+              <TabsTrigger value="practice">练习册</TabsTrigger>
+              <TabsTrigger value="homework">作业</TabsTrigger>
+              <TabsTrigger value="competition">比赛</TabsTrigger>
+              <TabsTrigger value="work">作品</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="practice" className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
                 <div>
-                  <h2 className="text-xl font-bold">{currentStudent.name}</h2>
-                  <p className="text-gray-500">{currentStudent.phone}</p>
-                  <p className="text-sm text-gray-400">加入时间: {currentStudent.createdAt ? new Date(currentStudent.createdAt).toLocaleDateString() : '--'}</p>
+                  <Label>练习册</Label>
+                  <Select value={bookId} onValueChange={setBookId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择练习册" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {books.map((book) => (
+                        <SelectItem key={book.id} value={book.id}>
+                          {book.orderNum}. {book.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>计入部位</Label>
+                  <Select value={practiceTarget} onValueChange={(value) => setPracticeTarget(value as PracticeTarget)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="root">树根</SelectItem>
+                      <SelectItem value="trunk">树干</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>分值档位</Label>
+                  <Select value={String(practiceScore)} onValueChange={(value) => setPracticeScore(Number(value) as 5 | 20 | 50 | 70)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[5, 20, 50, 70].map((value) => (
+                        <SelectItem key={value} value={String(value)}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+              <Textarea value={practiceRemark} onChange={(event) => setPracticeRemark(event.target.value)} placeholder="备注，例如：重写后覆盖旧分" />
+              <Button onClick={submitPractice} disabled={isSubmitting || !bookId}>
+                保存练习册分数
+              </Button>
+            </TabsContent>
 
-              <div className="relative h-48 bg-gradient-to-b from-sky-100 to-white rounded-xl overflow-hidden mb-4">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <img src={stageImageMap[currentStudent.stage] || stageImageMap.sprout} alt="成长树" className="h-40 w-auto object-contain" />
+            <TabsContent value="homework" className="space-y-3">
+              <Input value={homeworkName} onChange={(event) => setHomeworkName(event.target.value)} placeholder="作业名称" />
+              <Input type="number" min={0} max={100} value={homeworkScore} onChange={(event) => setHomeworkScore(Number(event.target.value) || 0)} />
+              <Button onClick={submitHomework} disabled={isSubmitting}>
+                保存作业分数
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="competition" className="space-y-3">
+              <Input value={competitionName} onChange={(event) => setCompetitionName(event.target.value)} placeholder="比赛名称" />
+              <Input type="number" min={0} max={100} value={competitionScore} onChange={(event) => setCompetitionScore(Number(event.target.value) || 0)} />
+              <Button onClick={submitCompetition} disabled={isSubmitting}>
+                保存比赛分数
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="work" className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <Label>作品位</Label>
+                  <Select value={String(workSlot)} onValueChange={(value) => setWorkSlot(Number(value) as 1 | 2)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">作品位 1</SelectItem>
+                      <SelectItem value="2">作品位 2</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                {currentStudent.isSenior && (
-                  <div className="absolute top-2 right-2">
-                    <Badge className="bg-amber-100 text-amber-700 border-amber-300">
-                      <Award className="w-3 h-3 mr-1" />
-                      资深学员
-                    </Badge>
-                  </div>
-                )}
+                <div>
+                  <Label>展示范围</Label>
+                  <Select value={workScope} onValueChange={(value) => setWorkScope(value as 'classroom' | 'school' | 'both')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="classroom">班级作品展</SelectItem>
+                      <SelectItem value="school">学校作品展</SelectItem>
+                      <SelectItem value="both">同时展示</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>作品分数</Label>
+                  <Input type="number" min={0} max={100} value={workScore} onChange={(event) => setWorkScore(Number(event.target.value) || 0)} />
+                </div>
               </div>
+              <Input value={workDesc} onChange={(event) => setWorkDesc(event.target.value)} placeholder="作品说明" />
+              <label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadWork(file);
+                    event.currentTarget.value = '';
+                  }}
+                />
+                <Button asChild disabled={isSubmitting}>
+                  <span>
+                    <Upload className="mr-2 h-4 w-4" />
+                    上传或替换作品
+                  </span>
+                </Button>
+              </label>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 text-green-600 mb-1"><TreePine className="w-4 h-4" /><span className="text-sm">累计总分</span></div>
-                  <p className="text-2xl font-bold text-green-700">{currentStudent.totalScore}</p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>成长明细</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {records.length === 0 ? (
+              <div className="text-sm text-slate-400">当前学期还没有记录</div>
+            ) : (
+              records.map((record) => (
+                <div key={record.id} className="rounded-lg border p-3 text-sm">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{getScoreTypeLabel(record.scoreType)}</span>
+                    <span className="font-medium">{deriveTitle(record)}</span>
+                  </div>
+                  <div className="text-slate-500">
+                    生效分 {record.score}
+                    {record.rawScore ? ` · 原始分 ${record.rawScore}` : ''}
+                    {record.multiplier && record.multiplier > 1 ? ` · 倍率 x${record.multiplier}` : ''}
+                    {record.targetPart ? ` · ${record.targetPart === 'root' ? '树根' : '树干'}` : ''}
+                  </div>
+                  <div className="text-slate-400">{new Date(record.createdAt).toLocaleString()}</div>
                 </div>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-600 mb-1"><BookOpen className="w-4 h-4" /><span className="text-sm">树根得分</span></div>
-                  <p className="text-2xl font-bold text-blue-700">{currentStudent.rootScore}</p>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>作品位</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {works.length === 0 ? (
+              <div className="text-sm text-slate-400">当前学期还没有作品</div>
+            ) : (
+              works.map((work) => (
+                <div key={work.id} className="rounded-lg border p-3 text-sm">
+                  <img src={work.imageUrl} alt="work" className="mb-2 h-32 w-full rounded object-cover" />
+                  <div>作品位 {work.slotIndex}</div>
+                  <div>分数 {work.score}</div>
+                  <div>范围 {work.galleryScope}</div>
+                  <div className="text-slate-500">{work.description || '无说明'}</div>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-600 mb-1"><TreePine className="w-4 h-4" /><span className="text-sm">树干得分</span></div>
-                  <p className="text-2xl font-bold text-amber-700">{currentStudent.trunkScore}</p>
-                </div>
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 text-purple-600 mb-1"><Leaf className="w-4 h-4" /><span className="text-sm">树叶数</span></div>
-                  <p className="text-2xl font-bold text-purple-700">{currentStudent.leafCount}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-3 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                积分操作
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-4 mb-6">
-                  <TabsTrigger value="basic">基础练习</TabsTrigger>
-                  <TabsTrigger value="homework">日常作业</TabsTrigger>
-                  <TabsTrigger value="competition">比赛作品</TabsTrigger>
-                  <TabsTrigger value="adjustment">积分调整</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="basic" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>选择练习册</Label>
-                    <Select value={basicForm.bookId} onValueChange={(v) => setBasicForm({ ...basicForm, bookId: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {books.map((book) => (
-                          <SelectItem key={book.id} value={book.id}>
-                            第{book.orderNum}册: {book.name} {book.orderNum <= 16 ? '(树根)' : '(树干)'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>得分等级</Label>
-                    <RadioGroup value={basicForm.score.toString()} onValueChange={(v) => setBasicForm({ ...basicForm, score: parseInt(v) as 5 | 20 | 50 })} className="flex gap-4">
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="5" id="score5" /><Label htmlFor="score5">5分</Label></div>
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="20" id="score20" /><Label htmlFor="score20">20分</Label></div>
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="50" id="score50" /><Label htmlFor="score50">50分</Label></div>
-                    </RadioGroup>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>备注 (选填)</Label>
-                    <Textarea placeholder="如：悬针竖写得很直" value={basicForm.remark} onChange={(e) => setBasicForm({ ...basicForm, remark: e.target.value })} />
-                  </div>
-                  <Button onClick={handleBasicSubmit} className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading} data-testid="submit-basic">
-                    {isLoading ? '提交中...' : '确认加分'}
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="homework" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>作业名称</Label>
-                    <Input placeholder="如：第5课 课后练习" value={homeworkForm.name} onChange={(e) => setHomeworkForm({ ...homeworkForm, name: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>得分: {homeworkForm.score}分</Label>
-                    <Slider value={[homeworkForm.score]} onValueChange={([v]) => setHomeworkForm({ ...homeworkForm, score: v })} min={1} max={3} step={0.5} />
-                    <div className="flex justify-between text-sm text-gray-500"><span>1分</span><span>2分</span><span>3分</span></div>
-                  </div>
-                  {currentStudent.isSenior && (
-                    <div className="bg-amber-50 p-3 rounded-lg flex items-center gap-2 text-amber-700">
-                      <AlertCircle className="w-4 h-4" />
-                      <span className="text-sm">该学员为资深学员，作业得分将自动翻倍</span>
-                    </div>
-                  )}
-                  <Button onClick={handleHomeworkSubmit} className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading} data-testid="submit-homework">
-                    {isLoading ? '提交中...' : '确认加分'}
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="competition" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>作品/比赛名称</Label>
-                    <Input placeholder="如：校艺术节书法展" value={competitionForm.name} onChange={(e) => setCompetitionForm({ ...competitionForm, name: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>得分 (30-50分)</Label>
-                    <Input type="number" min={30} max={50} value={competitionForm.score} onChange={(e) => setCompetitionForm({ ...competitionForm, score: parseInt(e.target.value) || 30 })} />
-                  </div>
-                  <Button onClick={handleCompetitionSubmit} className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading} data-testid="submit-competition">
-                    {isLoading ? '提交中...' : '确认加分'}
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="adjustment" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>调整类型</Label>
-                    <Select value={adjustmentForm.type} onValueChange={(v) => setAdjustmentForm({ ...adjustmentForm, type: v })}>
-                      <SelectTrigger><SelectValue placeholder="选择调整类型" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="系统修正">系统修正</SelectItem>
-                        <SelectItem value="课堂纪律扣分">课堂纪律扣分</SelectItem>
-                        <SelectItem value="补录分数">补录分数</SelectItem>
-                        <SelectItem value="其他">其他</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>调整数值 (支持负数)</Label>
-                    <Input type="number" placeholder="如：-10" value={adjustmentForm.score} onChange={(e) => setAdjustmentForm({ ...adjustmentForm, score: parseInt(e.target.value) || 0 })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>调整原因 (必填)</Label>
-                    <Textarea placeholder="请输入调整原因..." value={adjustmentForm.reason} onChange={(e) => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })} />
-                  </div>
-                  <Button onClick={handleAdjustmentSubmit} className="w-full bg-red-500 hover:bg-red-600" disabled={isLoading} data-testid="submit-adjustment">
-                    {isLoading ? '提交中...' : '提交调整'}
-                  </Button>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <History className="w-5 h-5 text-blue-600" />
-                操作记录
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-64">
-                <div className="space-y-3">
-                  {records.map((record, index) => (
-                    <div key={record.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg animate-in fade-in slide-in-from-left" style={{ animationDelay: `${index * 50}ms` }}>
-                      <Badge className={`${getTypeColor(record.scoreType)} border-0 shrink-0`}>
-                        {getTypeLabel(record.scoreType)}
-                      </Badge>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{deriveTitle(record)}</p>
-                        {record.reason && <p className="text-xs text-gray-500 mt-1">{record.reason}</p>}
-                        <p className="text-xs text-gray-400 mt-1">
-                          {record.createdAt ? new Date(record.createdAt).toLocaleString() : '--'} · {teacher?.name || '--'}
-                        </p>
-                      </div>
-                      <div className={`text-lg font-bold ${record.score >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {record.score >= 0 ? '+' : ''}{record.score}
-                      </div>
-                    </div>
-                  ))}
-                  {records.length === 0 && <div className="text-center py-8 text-gray-400">暂无操作记录</div>}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Image className="w-5 h-5 text-purple-600" />
-                  学生作品
-                </CardTitle>
-                <label>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleUploadWork} />
-                  <Button variant="outline" size="sm" asChild>
-                    <span><Upload className="w-3.5 h-3.5 mr-1" />上传作品</span>
-                  </Button>
-                </label>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {works.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">暂无作品</div>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  {works.map(w => (
-                    <div key={w.id} className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      <img
-                        src={w.thumbnailUrl || w.imageUrl}
-                        alt="作品"
-                        className="w-full h-full object-cover cursor-pointer"
-                        onClick={() => setPreviewWork(w.imageUrl)}
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <Button variant="ghost" size="icon" className="text-white" onClick={() => handleDeleteWork(w.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="absolute bottom-0 left-0 right-0 text-xs text-white bg-black/50 px-2 py-1 truncate">
-                        {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : ''}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      {/* 作品预览 */}
-      <Dialog open={!!previewWork} onOpenChange={() => setPreviewWork(null)}>
-        <DialogContent className="max-w-3xl p-2">
-          {previewWork && <img src={previewWork} alt="作品预览" className="w-full h-auto rounded" />}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

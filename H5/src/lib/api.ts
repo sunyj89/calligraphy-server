@@ -1,7 +1,15 @@
-import type { Student, ScoreRecord, Book, Work, PaginatedResponse, LoginResponse } from '@/types'
+import type {
+  Book,
+  LeaderboardEntry,
+  LoginResponse,
+  PaginatedResponse,
+  ScoreRecord,
+  Student,
+  Term,
+  Work,
+} from '@/types'
 
 const API_BASE = '/api'
-
 let token = localStorage.getItem('token')
 
 export function setToken(newToken: string) {
@@ -18,7 +26,6 @@ export function getToken() {
   return token
 }
 
-// snake_case → camelCase 深度转换
 function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
 }
@@ -33,7 +40,6 @@ function transformKeys(obj: unknown): unknown {
   return obj
 }
 
-// camelCase → snake_case 转换
 function camelToSnake(str: string): string {
   return str.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 }
@@ -54,62 +60,29 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers as Record<string, string>),
   }
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
+  if (token) headers.Authorization = `Bearer ${token}`
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  })
-
-  if (response.status === 401 && token) {
+  const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers })
+  if (response.status === 401) {
     clearToken()
     window.location.href = `${import.meta.env.BASE_URL}login`
-    throw new Error('登录已过期，请重新登录')
+    throw new Error('login expired')
   }
-
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: '请求失败' }))
-    throw new Error(error.detail || '请求失败')
+    const error = await response.json().catch(() => ({ detail: 'request failed' }))
+    throw new Error(error.detail || 'request failed')
   }
-
-  const data = await response.json()
-  return transformKeys(data) as T
-}
-
-async function requestRaw<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  }
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: '请求失败' }))
-    throw new Error(error.detail || '请求失败')
-  }
-
   const data = await response.json()
   return transformKeys(data) as T
 }
 
 export const api = {
-  // 学生认证
   login: (phone: string, password: string) =>
     request<LoginResponse>('/auth/student/login', {
       method: 'POST',
       body: JSON.stringify({ phone, password }),
     }),
 
-  // 学生信息
   getMe: () => request<Student>('/student/me'),
 
   updateProfile: (data: Partial<Pick<Student, 'name' | 'avatar' | 'gender' | 'birthday' | 'school' | 'grade'>>) =>
@@ -124,32 +97,38 @@ export const api = {
       body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
     }),
 
-  // 积分记录
-  getScores: (type?: string, page = 1, pageSize = 20) => {
+  getScores: (scoreType?: string, page = 1, pageSize = 20, term?: Term) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
-    if (type && type !== 'all') params.append('type', type)
+    if (scoreType && scoreType !== 'all') params.append('score_type', scoreType)
+    if (term) params.append('term', term)
     return request<PaginatedResponse<ScoreRecord>>(`/student/scores?${params}`)
   },
 
-  // 练习册
   getBooks: () => request<PaginatedResponse<Book>>('/student/books'),
 
-  // 作品
-  getWorks: (bookId?: string, page = 1, pageSize = 20) => {
+  getWorks: (term?: Term, page = 1, pageSize = 20) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
-    if (bookId) params.append('book_id', bookId)
+    if (term) params.append('term', term)
     return request<PaginatedResponse<Work>>(`/student/works?${params}`)
   },
 
   getWork: (workId: string) => request<Work>(`/student/works/${workId}`),
 
-  // 上传
-  uploadImage: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return requestRaw<{ url: string; filename: string }>('/upload/image', {
-      method: 'POST',
-      body: formData,
-    })
+  getClassroomGallery: (term?: Term, page = 1, pageSize = 20) => {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+    if (term) params.append('term', term)
+    return request<PaginatedResponse<Work>>(`/student/gallery/classroom?${params}`)
   },
+
+  getSchoolGallery: (term?: Term, page = 1, pageSize = 20) => {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+    if (term) params.append('term', term)
+    return request<PaginatedResponse<Work>>(`/student/gallery/school?${params}`)
+  },
+
+  getClassroomLeaderboard: (limit = 20) =>
+    request<LeaderboardEntry[]>(`/student/leaderboard/classroom?limit=${limit}`),
+
+  getSchoolLeaderboard: (limit = 20) =>
+    request<LeaderboardEntry[]>(`/student/leaderboard/school?limit=${limit}`),
 }

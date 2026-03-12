@@ -1,8 +1,7 @@
-from datetime import datetime
-from typing import Optional
-from uuid import UUID
-
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional
+from datetime import datetime
+from uuid import UUID
 
 
 class StudentLoginRequest(BaseModel):
@@ -16,8 +15,6 @@ class ChangePasswordRequest(BaseModel):
 
 
 class StudentAuthResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: UUID
     name: str
     phone: str
@@ -35,3 +32,5 @@ class StudentAuthResponse(BaseModel):
     is_senior: bool
     classroom_id: Optional[UUID] = None
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

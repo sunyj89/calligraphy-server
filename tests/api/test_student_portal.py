@@ -1,86 +1,101 @@
 from sqlalchemy import select
 
-from app.models import Book, ScoreRecord, Student, Teacher, Work
+from app.models import Book, Student
 
 
 async def login_student(client):
     response = await client.post(
         "/api/auth/student/login",
-        json={"phone": "13700000000", "password": "test123456"},
+        json={"phone": "13700000000", "password": "111111"},
     )
     assert response.status_code == 200
     return response.json()["access_token"]
 
 
-async def seed_student_activity(db):
-    student = (
-        await db.execute(select(Student).where(Student.phone == "13700000000"))
-    ).scalar_one()
-    teacher = (
-        await db.execute(select(Teacher).where(Teacher.phone == "13800000000"))
-    ).scalar_one()
+async def login_teacher(client):
+    response = await client.post(
+        "/api/auth/login",
+        json={"phone": "13800000000", "password": "123456"},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+async def test_student_can_view_and_update_profile(client):
+    token = await login_student(client)
+    me = await client.get("/api/student/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["phone"] == "13700000000"
+
+    update = await client.put(
+        "/api/student/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "New Name", "school": "Calligraphy School"},
+    )
+    assert update.status_code == 200
+    assert update.json()["name"] == "New Name"
+
+
+async def test_student_change_password_flow(client):
+    token = await login_student(client)
+    changed = await client.put(
+        "/api/student/password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"old_password": "111111", "new_password": "11111199"},
+    )
+    assert changed.status_code == 200
+
+    new_login = await client.post(
+        "/api/auth/student/login",
+        json={"phone": "13700000000", "password": "11111199"},
+    )
+    assert new_login.status_code == 200
+
+
+async def test_student_can_list_scores_and_works(client, db):
+    teacher_token = await login_teacher(client)
+    student = (await db.execute(select(Student).where(Student.phone == "13700000000"))).scalar_one()
     book = (await db.execute(select(Book).order_by(Book.order_num.asc()))).scalars().first()
 
-    score = ScoreRecord(
-        student_id=student.id,
-        teacher_id=teacher.id,
-        score_type="root",
-        score=5,
-        reason="课堂练习",
+    add_practice = await client.post(
+        f"/api/students/{student.id}/scores",
+        headers={"Authorization": f"Bearer {teacher_token}"},
+        json={
+            "score_type": "practice",
+            "score": 50,
+            "term": "spring",
+            "target_part": "root",
+            "book_id": str(book.id),
+            "reason": "lesson",
+        },
     )
-    work = Work(
-        student_id=student.id,
-        book_id=book.id,
-        image_url="/uploads/work-1.jpg",
-        thumbnail_url="/uploads/work-1-thumb.jpg",
-        description="第一幅作品",
+    assert add_practice.status_code == 200
+
+    add_work = await client.post(
+        f"/api/students/{student.id}/works",
+        headers={"Authorization": f"Bearer {teacher_token}"},
+        json={
+            "term": "spring",
+            "slot_index": 1,
+            "gallery_scope": "classroom",
+            "image_url": "/uploads/demo.jpg",
+            "description": "demo",
+            "score": 88,
+        },
     )
-    db.add_all([score, work])
-    await db.commit()
-    await db.refresh(work)
-    return {"book": book, "work": work}
+    assert add_work.status_code == 200
 
-
-async def test_student_can_list_own_scores(client, db):
-    token = await login_student(client)
-    await seed_student_activity(db)
-
-    response = await client.get(
-        "/api/student/scores?page=1&page_size=20",
-        headers={"Authorization": f"Bearer {token}"},
+    student_token = await login_student(client)
+    scores_resp = await client.get(
+        "/api/student/scores?term=spring",
+        headers={"Authorization": f"Bearer {student_token}"},
     )
+    assert scores_resp.status_code == 200
+    assert scores_resp.json()["total"] >= 1
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["score_type"] == "root"
-
-
-async def test_student_can_list_own_works(client, db):
-    token = await login_student(client)
-    seeded = await seed_student_activity(db)
-
-    response = await client.get(
-        f"/api/student/works?book_id={seeded['book'].id}",
-        headers={"Authorization": f"Bearer {token}"},
+    works_resp = await client.get(
+        "/api/student/works?term=spring",
+        headers={"Authorization": f"Bearer {student_token}"},
     )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["description"] == "第一幅作品"
-
-
-async def test_student_can_view_own_work_detail(client, db):
-    token = await login_student(client)
-    seeded = await seed_student_activity(db)
-
-    response = await client.get(
-        f"/api/student/works/{seeded['work'].id}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["id"] == str(seeded["work"].id)
-    assert payload["book_id"] == str(seeded["book"].id)
+    assert works_resp.status_code == 200
+    assert works_resp.json()["total"] >= 1

@@ -16,6 +16,7 @@ frontend/dist/
 frontend/playwright-report/
 frontend/test-results/
 .local/
+.runlogs/
 
 # SSL certs (server only, never commit)
 ssl/

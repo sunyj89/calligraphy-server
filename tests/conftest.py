@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.redis import get_redis
 from app.core.security import hash_password
 from app.main import app
-from app.models import Book, Student, Teacher
+from app.models import Book, Classroom, Student, Teacher
 from app.models.base import Base, get_db
 
 
@@ -42,28 +42,36 @@ async def _seed_database(session: AsyncSession):
     teacher = Teacher(
         name="Teacher Zhang",
         phone="13800000000",
-        password_hash=hash_password("teacher123"),
+        password_hash=hash_password("123456"),
         role="teacher",
     )
+    session.add_all([admin, teacher])
+    await session.flush()
+
+    classroom = Classroom(
+        name="Class 1",
+        grade_year="1",
+        teacher_id=teacher.id,
+        description="Test classroom",
+    )
+    session.add(classroom)
+    await session.flush()
+
     student = Student(
         name="Test Student",
         phone="13700000000",
-        password_hash=hash_password("test123456"),
-        total_score=4587,
-        root_score=2000,
-        trunk_score=1500,
-        leaf_count=8,
-        fruit_count=1,
-        stage="small",
-        is_senior=False,
-        ever_reached_senior=False,
+        password_hash=hash_password("111111"),
+        grade="1",
+        gender="male",
+        classroom_id=classroom.id,
+        created_by=teacher.id,
     )
     books = [
         Book(name="Book One", order_num=1, description="Basic strokes"),
         Book(name="Book Two", order_num=2, description="Advanced strokes"),
     ]
 
-    session.add_all([admin, teacher, student, *books])
+    session.add_all([student, *books])
     await session.commit()
 
 
@@ -105,17 +113,3 @@ async def client(session_factory, fake_redis):
         yield ac
 
     app.dependency_overrides.clear()
-
-
-@pytest.fixture
-async def test_teacher(db: AsyncSession):
-    teacher = Teacher(
-        name="Test Teacher",
-        phone="13899990000",
-        password_hash=hash_password("password123"),
-        role="teacher",
-    )
-    db.add(teacher)
-    await db.commit()
-    await db.refresh(teacher)
-    return teacher

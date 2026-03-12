@@ -1,17 +1,22 @@
-// 学员成长阶段
-export type GrowthStage = 'sprout' | 'seedling' | 'small' | 'medium' | 'large' | 'xlarge' | 'fruitful'
+export type GrowthStage =
+  | 'sprout'
+  | 'seedling'
+  | 'small'
+  | 'medium'
+  | 'large'
+  | 'xlarge'
+  | 'fruitful'
 
-// 积分记录类型
-export type ScoreType = 'basic' | 'homework' | 'competition' | 'adjustment' | 'root' | 'trunk' | 'leaf' | 'fruit'
+export type ScoreType = 'practice' | 'homework' | 'work' | 'competition'
+export type Term = 'spring' | 'summer' | 'autumn'
 
-// 学员接口
 export interface Student {
   id: string
   name: string
-  avatar: string
+  avatar?: string
   phone: string
-  address: string
-  school: string
+  address?: string
+  school?: string
   grade: string
   gender?: string
   birthday?: string
@@ -25,46 +30,56 @@ export interface Student {
   classroomId?: string
   createdAt: string
   updatedAt?: string
-  lastActive?: string
 }
 
-// 练习册接口
 export interface Book {
   id: string
   name: string
   cover?: string
   description?: string
   orderNum: number
-  isActive: boolean
-  createdAt: string
+  isActive?: boolean
+  createdAt?: string
 }
 
-// 积分记录接口
 export interface ScoreRecord {
   id: string
   studentId: string
   teacherId: string
   scoreType: ScoreType
   score: number
+  rawScore?: number
+  multiplier?: number
+  term?: Term
+  targetPart?: 'root' | 'trunk'
+  bookId?: string
+  workId?: string
   reason?: string
-  createdAt: string
   title?: string
   teacherName?: string
+  createdAt: string
 }
 
-// 作品接口
 export interface Work {
   id: string
   studentId: string
-  bookId?: string
+  teacherId: string
+  term: Term
+  slotIndex: 1 | 2
+  galleryScope: 'classroom' | 'school' | 'both'
   imageUrl: string
   thumbnailUrl?: string
   description?: string
+  score: number
+  bookName?: string
+  teacherComment?: string
+  teacherName?: string
+  rating?: number
+  tags?: string[]
   isActive: boolean
   createdAt: string
 }
 
-// 分页响应
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
@@ -72,9 +87,18 @@ export interface PaginatedResponse<T> {
   pageSize?: number
 }
 
-// 登录响应
 export interface LoginResponse {
   accessToken: string
   tokenType: string
   student?: Student
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  id: string
+  name: string
+  totalScore: number
+  stage: GrowthStage
+  avatar?: string
+  classroomId?: string
 }

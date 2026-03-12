@@ -1,7 +1,7 @@
 async def login_teacher(client):
     response = await client.post(
         "/api/auth/login",
-        json={"phone": "13800000000", "password": "teacher123"},
+        json={"phone": "13800000000", "password": "123456"},
     )
     assert response.status_code == 200
     return response.json()["access_token"]

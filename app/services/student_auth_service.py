@@ -14,25 +14,19 @@ def _as_uuid(student_id: str) -> UUID:
 
 
 async def student_login(phone: str, password: str, db: AsyncSession) -> dict:
-    """瀛︾敓璐﹀彿瀵嗙爜鐧诲綍"""
     result = await db.execute(
         select(Student).where(Student.phone == phone, Student.is_active == True)
     )
     student = result.scalar_one_or_none()
 
     if not student or not student.password_hash:
-        raise UnauthorizedException("鎵嬫満鍙锋垨瀵嗙爜閿欒")
+        raise UnauthorizedException("invalid phone or password")
 
     if not verify_password(password, student.password_hash):
-        raise UnauthorizedException("鎵嬫満鍙锋垨瀵嗙爜閿欒")
+        raise UnauthorizedException("invalid phone or password")
 
     token = create_jwt({"sub": str(student.id), "type": "student"})
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "student": student,
-    }
+    return {"access_token": token, "token_type": "bearer", "student": student}
 
 
 async def change_password(
@@ -41,16 +35,13 @@ async def change_password(
     new_password: str,
     db: AsyncSession,
 ) -> dict:
-    """淇敼瀵嗙爜"""
     result = await db.execute(select(Student).where(Student.id == _as_uuid(student_id)))
     student = result.scalar_one()
 
-    if old_password and student.password_hash:
-        if not verify_password(old_password, student.password_hash):
-            raise BadRequestException("鍘熷瘑鐮侀敊璇?")
+    if student.password_hash and not verify_password(old_password, student.password_hash):
+        raise BadRequestException("old password is incorrect")
 
     student.password_hash = hash_password(new_password)
     student.password_changed_at = datetime.now(timezone.utc)
     await db.commit()
-
-    return {"message": "瀵嗙爜淇敼鎴愬姛"}
+    return {"message": "password updated"}

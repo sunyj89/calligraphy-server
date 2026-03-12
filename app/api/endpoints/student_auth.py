@@ -10,7 +10,7 @@ from app.models.student import Student
 from app.schemas.student_auth import StudentLoginRequest
 from app.services import student_auth_service
 
-router = APIRouter(prefix="/api/auth/student", tags=["瀛︾敓璁よ瘉"])
+router = APIRouter(prefix="/api/auth/student", tags=["student-auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/student/login")
 
 
@@ -29,4 +29,4 @@ async def logout(
     jti = token_info.get("jti")
     if jti:
         await add_to_blacklist(jti, redis)
-    return {"message": "閫€鍑烘垚鍔?"}
+    return {"message": "logout success"}

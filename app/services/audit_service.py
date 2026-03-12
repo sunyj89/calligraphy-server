@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from app.models.audit_log import AuditLog
 from typing import Optional, Any
+from uuid import UUID
 
 
 async def create_log(
@@ -14,7 +15,7 @@ async def create_log(
     detail: Optional[Any] = None,
 ):
     log = AuditLog(
-        teacher_id=teacher_id,
+        teacher_id=UUID(teacher_id),
         teacher_name=teacher_name,
         action=action,
         target_type=target_type,

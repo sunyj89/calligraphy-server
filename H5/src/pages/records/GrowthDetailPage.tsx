@@ -1,52 +1,45 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+
+import { deriveTitle, getScoreTypeLabel } from '@/hooks/useScoreSystem'
+import { SCORE_TYPE_COLORS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useStudentStore } from '@/stores/student'
-import { cn } from '@/lib/utils'
-import { SCORE_TYPE_COLORS } from '@/lib/constants'
-import { deriveTitle, getScoreTypeLabel } from '@/hooks/useScoreSystem'
 
 const TABS = [
   { key: 'all', label: '全部' },
-  { key: 'basic', label: '基础练习' },
-  { key: 'homework', label: '优秀作业' },
-  { key: 'competition', label: '比赛获奖' },
+  { key: 'practice', label: '练习册' },
+  { key: 'homework', label: '作业' },
+  { key: 'work', label: '作品' },
+  { key: 'competition', label: '比赛' },
 ]
 
 export function GrowthDetailPage() {
-  const student = useAuthStore(s => s.student)
+  const student = useAuthStore((state) => state.student)
   const { records, recordsLoading, fetchRecords } = useStudentStore()
   const [activeTab, setActiveTab] = useState('all')
 
-  useEffect(() => { fetchRecords(activeTab) }, [activeTab, fetchRecords])
-
-  const totalScore = student?.totalScore ?? 0
+  useEffect(() => {
+    void fetchRecords(activeTab)
+  }, [activeTab, fetchRecords])
 
   return (
-    <div className="flex flex-col h-full">
-      {/* 状态栏 */}
-      <div className="h-11 flex items-center justify-between px-5 pt-3">
-        <span className="font-number font-semibold text-[15px]">9:41</span>
-      </div>
-
-      {/* 页面标题 */}
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-5 py-3">
         <h1 className="text-[22px] font-semibold tracking-tight">成长明细</h1>
-        <div className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-card">
-          总计 {totalScore}分
+        <div className="rounded-card bg-primary px-3 py-1.5 text-xs font-bold text-white">
+          总分 {student?.totalScore ?? 0}
         </div>
       </div>
 
-      {/* Tab 栏 */}
       <div className="flex px-5">
-        {TABS.map(tab => (
+        {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              'flex-1 py-2.5 text-[13px] tracking-wider text-center',
-              activeTab === tab.key
-                ? 'text-primary font-bold border-b-2 border-primary'
-                : 'text-text-disabled font-medium'
+              'flex-1 border-b py-2.5 text-center text-[13px]',
+              activeTab === tab.key ? 'border-primary font-bold text-primary' : 'border-transparent text-text-disabled'
             )}
           >
             {tab.label}
@@ -54,42 +47,43 @@ export function GrowthDetailPage() {
         ))}
       </div>
 
-      {/* 记录列表 */}
-      <div className="flex-1 overflow-y-auto px-5 py-2 flex flex-col gap-2.5">
+      <div className="flex-1 overflow-y-auto px-5 py-3">
         {recordsLoading && records.length === 0 ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : records.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-2">
-            <span className="text-4xl">📝</span>
-            <span className="text-sm text-text-tertiary">暂无记录</span>
-          </div>
+          <div className="py-20 text-center text-sm text-text-tertiary">当前分类下还没有成长记录</div>
         ) : (
-          records.map(record => {
-            const colors = SCORE_TYPE_COLORS[record.scoreType] || SCORE_TYPE_COLORS.basic
-            return (
-              <div key={record.id} className={cn('flex items-center gap-3 rounded-input p-3.5', colors.bg)}>
-                <div className={cn('w-1 self-stretch rounded-sm', colors.accent)} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded text-white', colors.accent)}>
-                      {getScoreTypeLabel(record.scoreType)}
-                    </span>
-                    <span className="text-sm font-semibold text-text-primary truncate">
-                      {deriveTitle(record)}
-                    </span>
+          <div className="space-y-2.5">
+            {records.map((record) => {
+              const colors = SCORE_TYPE_COLORS[record.scoreType] || SCORE_TYPE_COLORS.practice
+              return (
+                <div key={record.id} className={cn('flex items-center gap-3 rounded-input p-3.5', colors.bg)}>
+                  <div className={cn('self-stretch w-1 rounded-sm', colors.accent)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold text-white', colors.accent)}>
+                        {getScoreTypeLabel(record.scoreType)}
+                      </span>
+                      <span className="truncate text-sm font-semibold text-text-primary">{deriveTitle(record)}</span>
+                    </div>
+                    <div className="space-y-0.5 text-[11px] text-text-tertiary">
+                      <div>{new Date(record.createdAt).toLocaleDateString('zh-CN')}</div>
+                      <div>
+                        原始分 {record.rawScore ?? record.score}
+                        {record.multiplier && record.multiplier > 1 ? ` · 倍率 x${record.multiplier}` : ''}
+                        {record.targetPart ? ` · ${record.targetPart === 'root' ? '树根' : '树干'}` : ''}
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[11px] text-text-tertiary">
-                    {new Date(record.createdAt).toLocaleDateString('zh-CN')}
+                  <span className={cn('shrink-0 font-score text-xl font-semibold', colors.text)}>
+                    +{record.score}
                   </span>
                 </div>
-                <span className={cn('font-score text-xl font-semibold shrink-0', colors.text)}>
-                  +{record.score}
-                </span>
-              </div>
-            )
-          })
+              )
+            })}
+          </div>
         )}
       </div>
     </div>
