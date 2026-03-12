@@ -10,8 +10,6 @@ interface AuthState {
   isLoading: boolean
 
   login: (phone: string, password: string) => Promise<void>
-  loginWithSms: (phone: string, code: string) => Promise<void>
-  register: (data: { phone: string; code: string; password: string; name: string }) => Promise<void>
   logout: () => void
   refreshProfile: () => Promise<void>
   initialize: () => void
@@ -25,24 +23,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (phone, password) => {
     const res = await api.login(phone, password)
-    setToken(res.accessToken)
-    set({ token: res.accessToken, isAuthenticated: true, student: res.student || null })
-    if (!res.student) {
-      await get().refreshProfile()
-    }
-  },
-
-  loginWithSms: async (phone, code) => {
-    const res = await api.loginWithSms(phone, code)
-    setToken(res.accessToken)
-    set({ token: res.accessToken, isAuthenticated: true, student: res.student || null })
-    if (!res.student) {
-      await get().refreshProfile()
-    }
-  },
-
-  register: async (data) => {
-    const res = await api.register(data)
     setToken(res.accessToken)
     set({ token: res.accessToken, isAuthenticated: true, student: res.student || null })
     if (!res.student) {

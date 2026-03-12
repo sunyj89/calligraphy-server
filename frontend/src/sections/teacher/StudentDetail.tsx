@@ -57,9 +57,11 @@ export function StudentDetail({ student, onBack, onStudentUpdated }: StudentDeta
     loadRecords(student.id);
     api.getBooks().then(res => {
       setBooks(res.items);
-      if (res.items.length > 0 && !basicForm.bookId) {
-        setBasicForm(prev => ({ ...prev, bookId: res.items[0].id }));
-      }
+      setBasicForm(prev => (
+        prev.bookId || res.items.length === 0
+          ? prev
+          : { ...prev, bookId: res.items[0].id }
+      ));
     }).catch(() => {});
     api.getStudentWorks(student.id, 1, 50).then(res => {
       setWorks(res.items as unknown as Work[]);

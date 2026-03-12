@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StudentLoginRequest(BaseModel):
@@ -8,34 +10,15 @@ class StudentLoginRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=50)
 
 
-class SmsCodeRequest(BaseModel):
-    phone: str = Field(..., min_length=11, max_length=11)
-
-
-class StudentSmsLoginRequest(BaseModel):
-    phone: str = Field(..., min_length=11, max_length=11)
-    code: str = Field(..., min_length=6, max_length=6)
-
-
-class StudentRegisterRequest(BaseModel):
-    phone: str = Field(..., min_length=11, max_length=11)
-    code: str = Field(..., min_length=6, max_length=6)
-    password: str = Field(..., min_length=6, max_length=50)
-    name: str = Field(..., min_length=1, max_length=50)
-
-
 class ChangePasswordRequest(BaseModel):
     old_password: Optional[str] = None
     new_password: str = Field(..., min_length=6, max_length=50)
 
 
-class ChangePhoneRequest(BaseModel):
-    new_phone: str = Field(..., min_length=11, max_length=11)
-    code: str = Field(..., min_length=6, max_length=6)
-
-
 class StudentAuthResponse(BaseModel):
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     name: str
     phone: str
     avatar: Optional[str] = None
@@ -50,8 +33,5 @@ class StudentAuthResponse(BaseModel):
     fruit_count: int
     stage: str
     is_senior: bool
-    classroom_id: Optional[str] = None
+    classroom_id: Optional[UUID] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True

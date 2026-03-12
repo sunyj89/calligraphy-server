@@ -63,9 +63,11 @@ test.describe('学员管理', () => {
     // 填写必填字段
     const uniqueName = `测试学员_${Date.now()}`;
     const uniquePhone = `138${String(Date.now()).slice(-8)}`;
+    const password = 'student123';
 
     await page.getByTestId('new-student-name').fill(uniqueName);
     await page.getByTestId('new-student-phone').fill(uniquePhone);
+    await page.getByTestId('new-student-password').fill(password);
 
     // 确认按钮应该可用
     await expect(page.getByTestId('confirm-add-student')).toBeEnabled();

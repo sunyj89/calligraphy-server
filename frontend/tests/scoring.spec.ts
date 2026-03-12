@@ -118,7 +118,6 @@ test.describe('积分操作', () => {
     // 获取当前总分
     const totalScoreElement = page.locator('.bg-green-50 .text-2xl');
     await expect(totalScoreElement).toBeVisible({ timeout: 10000 });
-    const initialScore = await totalScoreElement.textContent();
 
     // 提交基础练习加分
     await page.getByTestId('submit-basic').click();

@@ -1,10 +1,16 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
+
+from app.api import routers
 from app.core.config import settings
 from app.core.redis import close_redis
-from app.api import routers
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+UPLOADS_DIR = BASE_DIR / "uploads"
 
 
 @asynccontextmanager
@@ -13,30 +19,36 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-app = FastAPI(
-    title="书法成长树 API",
-    version="1.4.0",
-    lifespan=lifespan
-)
+def create_app(upload_dir: Path | None = None) -> FastAPI:
+    static_dir = upload_dir or UPLOADS_DIR
+    static_dir.mkdir(parents=True, exist_ok=True)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    application = FastAPI(
+        title="涔︽硶鎴愰暱鏍?API",
+        version="1.4.0",
+        lifespan=lifespan,
+    )
 
-app.include_router(routers.router)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+    application.include_router(routers.router)
+    application.mount("/uploads", StaticFiles(directory=str(static_dir)), name="uploads")
+
+    @application.get("/")
+    async def root():
+        return {"message": "涔︽硶鎴愰暱鏍?API", "version": "1.4.0"}
+
+    @application.get("/health")
+    async def health():
+        return {"status": "ok"}
+
+    return application
 
 
-@app.get("/")
-async def root():
-    return {"message": "书法成长树 API", "version": "1.4.0"}
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+app = create_app()

@@ -4,9 +4,6 @@ export type GrowthStage = 'sprout' | 'seedling' | 'small' | 'medium' | 'large' |
 // 积分记录类型
 export type ScoreType = 'basic' | 'homework' | 'competition' | 'adjustment' | 'root' | 'trunk' | 'leaf' | 'fruit'
 
-// 练习册分类
-export type BookCategory = 'root' | 'trunk'
-
 // 学员接口
 export interface Student {
   id: string
@@ -31,23 +28,15 @@ export interface Student {
   lastActive?: string
 }
 
-// 练习册得分等级
-export interface BookScores {
-  level5: boolean
-  level20: boolean
-  level50: boolean
-}
-
 // 练习册接口
 export interface Book {
   id: string
   name: string
-  category: BookCategory
-  maxScore: number
-  scores: BookScores
-  completedAt?: string
-  currentScore: number
+  cover?: string
+  description?: string
   orderNum: number
+  isActive: boolean
+  createdAt: string
 }
 
 // 积分记录接口
@@ -68,15 +57,9 @@ export interface Work {
   id: string
   studentId: string
   bookId?: string
-  bookName?: string
   imageUrl: string
   thumbnailUrl?: string
   description?: string
-  teacherComment?: string
-  teacherName?: string
-  teacherAvatar?: string
-  rating?: number
-  tags?: string[]
   isActive: boolean
   createdAt: string
 }

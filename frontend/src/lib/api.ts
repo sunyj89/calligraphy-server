@@ -142,7 +142,7 @@ export const api = {
 
   getStudent: (id: string) => request<Student>(`/students/${id}`),
 
-  createStudent: (data: { name: string; phone?: string; avatar?: string; address?: string; school?: string; grade?: string }) =>
+  createStudent: (data: { name: string; phone: string; password: string; avatar?: string; address?: string; school?: string; grade?: string }) =>
     request<Student>('/students', {
       method: 'POST',
       body: JSON.stringify(transformKeysToSnake(data)),

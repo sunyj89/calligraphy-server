@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.models.base import Base
 from app.models.user import Teacher
@@ -41,7 +42,29 @@ BOOKS_DATA = [
 ]
 
 
+def ensure_demo_uploads() -> None:
+    uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
+    uploads_dir.mkdir(exist_ok=True)
+
+    svg_content = """<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000">
+<rect width="800" height="1000" fill="#f7f4ea"/>
+<rect x="70" y="70" width="660" height="860" rx="24" fill="#fffdf7" stroke="#d7ccb0" stroke-width="6"/>
+<line x1="180" y1="120" x2="180" y2="880" stroke="#eadfc5" stroke-width="4"/>
+<line x1="400" y1="120" x2="400" y2="880" stroke="#eadfc5" stroke-width="4"/>
+<line x1="620" y1="120" x2="620" y2="880" stroke="#eadfc5" stroke-width="4"/>
+<text x="400" y="180" text-anchor="middle" font-size="56" fill="#2f5d50" font-family="KaiTi, serif">书法成长树</text>
+<text x="400" y="320" text-anchor="middle" font-size="120" fill="#1f3b33" font-family="KaiTi, serif">永</text>
+<text x="400" y="430" text-anchor="middle" font-size="44" fill="#6b5f48" font-family="KaiTi, serif">基础笔画练习作品</text>
+<text x="400" y="520" text-anchor="middle" font-size="32" fill="#8a7d62" font-family="sans-serif">Teacher Demo Upload</text>
+</svg>
+"""
+
+    (uploads_dir / "demo-work.svg").write_text(svg_content, encoding="utf-8")
+    (uploads_dir / "demo-work-thumb.svg").write_text(svg_content, encoding="utf-8")
+
+
 async def init_db():
+    ensure_demo_uploads()
     engine = create_async_engine(settings.DATABASE_URL, echo=True)
     
     async with engine.begin() as conn:
@@ -51,6 +74,8 @@ async def init_db():
     AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with AsyncSessionLocal() as session:
+        books: list[Book] = []
+
         admin = Teacher(
             name="管理员",
             phone="13900000000",
@@ -69,6 +94,7 @@ async def init_db():
         
         for book_data in BOOKS_DATA:
             book = Book(**book_data)
+            books.append(book)
             session.add(book)
         
         student = Student(
@@ -85,7 +111,40 @@ async def init_db():
             ever_reached_senior=False,
         )
         session.add(student)
-        
+
+        await session.flush()
+
+        session.add_all([
+            ScoreRecord(
+                student_id=student.id,
+                teacher_id=teacher.id,
+                score_type="root",
+                score=5,
+                reason="课堂基础练习",
+            ),
+            ScoreRecord(
+                student_id=student.id,
+                teacher_id=teacher.id,
+                score_type="leaf",
+                score=2,
+                reason="课后练习提交",
+            ),
+            ScoreRecord(
+                student_id=student.id,
+                teacher_id=teacher.id,
+                score_type="fruit",
+                score=30,
+                reason="月度作品展示",
+            ),
+            Work(
+                student_id=student.id,
+                book_id=books[0].id,
+                image_url="/uploads/demo-work.svg",
+                thumbnail_url="/uploads/demo-work-thumb.svg",
+                description="基础笔画练习作品",
+            ),
+        ])
+
         await session.commit()
     
     print("数据库初始化完成！")

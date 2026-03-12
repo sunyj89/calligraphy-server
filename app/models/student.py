@@ -1,14 +1,13 @@
 import uuid
 from datetime import datetime, timezone, date
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Date
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Uuid
 from app.models.base import Base
 
 
 class Student(Base):
     __tablename__ = "students"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     openid = Column(String(50))
     phone = Column(String(20))
     unionid = Column(String(50))
@@ -28,8 +27,8 @@ class Student(Base):
     is_senior = Column(Boolean, default=False)
     ever_reached_senior = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("teachers.id"), nullable=True)
-    classroom_id = Column(UUID(as_uuid=True), ForeignKey("classrooms.id"), nullable=True)
+    created_by = Column(Uuid(as_uuid=True), ForeignKey("teachers.id"), nullable=True)
+    classroom_id = Column(Uuid(as_uuid=True), ForeignKey("classrooms.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     last_active = Column(DateTime(timezone=True), nullable=True)

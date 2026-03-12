@@ -48,6 +48,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
   const [newStudent, setNewStudent] = useState({
     name: '',
     phone: '',
+    password: '',
     address: '',
     school: '',
     grade: '',
@@ -78,8 +79,12 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
   }, []);
 
   useEffect(() => {
-    loadStudents();
-    loadStatistics();
+    const timer = window.setTimeout(() => {
+      void loadStudents();
+      void loadStatistics();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadStudents, loadStatistics]);
 
   // 搜索防抖
@@ -125,7 +130,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
   };
 
   const handleAddStudent = async () => {
-    if (!newStudent.name.trim() || !newStudent.phone.trim()) return;
+    if (!newStudent.name.trim() || !newStudent.phone.trim() || !newStudent.password.trim()) return;
 
     try {
       let avatarUrl: string | undefined;
@@ -137,13 +142,14 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
       await api.createStudent({
         name: newStudent.name,
         phone: newStudent.phone,
+        password: newStudent.password,
         avatar: avatarUrl,
         address: newStudent.address || undefined,
         school: newStudent.school || undefined,
         grade: newStudent.grade || undefined,
       });
 
-      setNewStudent({ name: '', phone: '', address: '', school: '', grade: '' });
+      setNewStudent({ name: '', phone: '', password: '', address: '', school: '', grade: '' });
       setAvatarPreview(null);
       setAvatarFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -378,6 +384,10 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
               <Input id="phone" placeholder="请输入学员电话" value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} data-testid="new-student-phone" />
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="password">初始密码 *</Label>
+              <Input id="password" type="password" placeholder="请设置学生初始密码" value={newStudent.password} onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })} data-testid="new-student-password" />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="address">住址</Label>
               <Input id="address" placeholder="请输入学员住址" value={newStudent.address} onChange={(e) => setNewStudent({ ...newStudent, address: e.target.value })} />
             </div>
@@ -392,7 +402,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>取消</Button>
-            <Button onClick={handleAddStudent} className="bg-green-600 hover:bg-green-700" disabled={!newStudent.name.trim() || !newStudent.phone.trim()} data-testid="confirm-add-student">
+            <Button onClick={handleAddStudent} className="bg-green-600 hover:bg-green-700" disabled={!newStudent.name.trim() || !newStudent.phone.trim() || !newStudent.password.trim()} data-testid="confirm-add-student">
               添加
             </Button>
           </DialogFooter>
