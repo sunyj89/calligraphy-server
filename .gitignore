@@ -24,3 +24,4 @@ ssl.zip
 
 # Local env override
 .env
+.basetemp_fix/
