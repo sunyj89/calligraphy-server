@@ -76,7 +76,7 @@ export function WorkDetailPage() {
             <p className="text-sm text-text-secondary leading-relaxed">{work.teacherComment}</p>
             {work.tags && work.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
-                {work.tags.map(tag => (
+                {work.tags.map((tag: string) => (
                   <span key={tag} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
                     {tag}
                   </span>

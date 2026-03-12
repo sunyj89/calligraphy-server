@@ -7,7 +7,7 @@ from uuid import UUID
 class TeacherCreate(BaseModel):
     name: str
     phone: str
-    password: str
+    password: str = "123456"
     role: str = "teacher"
 
 
@@ -18,7 +18,7 @@ class TeacherUpdate(BaseModel):
 
 
 class TeacherResetPassword(BaseModel):
-    new_password: str
+    new_password: str = "123456"
 
 
 class TeacherListResponse(BaseModel):

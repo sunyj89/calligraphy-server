@@ -1,21 +1,26 @@
-// 学员成长阶段
-export type GrowthStage = 'sprout' | 'seedling' | 'small' | 'medium' | 'large' | 'xlarge' | 'fruitful';
+export type GrowthStage =
+  | 'sprout'
+  | 'seedling'
+  | 'small'
+  | 'medium'
+  | 'large'
+  | 'xlarge'
+  | 'fruitful';
 
-// 积分记录类型（含后端返回的 root/trunk/leaf/fruit）
-export type ScoreType = 'basic' | 'homework' | 'competition' | 'adjustment' | 'root' | 'trunk' | 'leaf' | 'fruit';
+export type ScoreType = 'practice' | 'homework' | 'work' | 'competition';
+export type Term = 'spring' | 'summer' | 'autumn';
+export type PracticeTarget = 'root' | 'trunk';
 
-// 练习册分类
-export type BookCategory = 'root' | 'trunk';
-
-// 学员接口
 export interface Student {
   id: string;
   name: string;
-  avatar: string;
+  avatar?: string;
   phone: string;
-  address: string;
-  school: string;
+  address?: string;
+  school?: string;
   grade: string;
+  gender: string;
+  birthday?: string;
   totalScore: number;
   rootScore: number;
   trunkScore: number;
@@ -26,43 +31,24 @@ export interface Student {
   classroomId?: string;
   createdAt: string;
   updatedAt?: string;
-  lastActive?: string;
 }
 
-// 练习册得分等级
-export interface BookScores {
-  level5: boolean;
-  level20: boolean;
-  level50: boolean;
-}
-
-// 练习册接口（前端 UI 用）
-export interface Book {
-  id: string;
-  name: string;
-  category: BookCategory;
-  maxScore: number;
-  scores: BookScores;
-  completedAt?: string;
-  currentScore: number;
-  orderNum: number;
-}
-
-// 积分记录接口
 export interface ScoreRecord {
   id: string;
   studentId: string;
   teacherId: string;
   scoreType: ScoreType;
   score: number;
+  rawScore?: number;
+  multiplier?: number;
+  term?: Term;
+  targetPart?: PracticeTarget;
+  bookId?: string;
+  workId?: string;
   reason?: string;
   createdAt: string;
-  // 前端推导字段
-  title?: string;
-  teacherName?: string;
 }
 
-// 教师接口
 export interface Teacher {
   id: string;
   name: string;
@@ -73,74 +59,66 @@ export interface Teacher {
   createdAt?: string;
 }
 
-// 积分操作表单数据
+export interface TeacherSummary {
+  id: string;
+  name: string;
+  phone: string;
+}
+
 export interface BasicPracticeForm {
   bookId: string;
-  score: 5 | 20 | 50;
+  score: 5 | 20 | 50 | 70;
   remark: string;
+  term: Term;
 }
 
 export interface HomeworkForm {
   name: string;
   score: number;
+  term: Term;
 }
 
 export interface CompetitionForm {
   name: string;
   score: number;
+  term: Term;
 }
 
-export interface AdjustmentForm {
-  type: string;
-  score: number;
-  reason: string;
-}
-
-// 成长树节点
-export interface TreeNode {
-  id: string;
-  type: 'root' | 'trunk' | 'leaf' | 'fruit';
-  name: string;
-  score: number;
-  x: number;
-  y: number;
-  completed: boolean;
-}
-
-// 统计信息
-export interface Statistics {
-  totalStudents: number;
-  newToday?: number;
-  activeStudents?: number;
-  seniorStudents: number;
-}
-
-// 作品接口
 export interface Work {
   id: string;
   studentId: string;
-  bookId?: string;
+  teacherId: string;
+  term: Term;
+  slotIndex: 1 | 2;
+  galleryScope: 'classroom' | 'school' | 'both';
   imageUrl: string;
   thumbnailUrl?: string;
   description?: string;
+  score: number;
   isActive: boolean;
   createdAt: string;
 }
 
-// 班级接口
+export interface Statistics {
+  totalStudents: number;
+  seniorStudents: number;
+  newToday?: number;
+  activeStudents?: number;
+}
+
 export interface Classroom {
   id: string;
   name: string;
   gradeYear?: string;
   description?: string;
   teacherId: string;
+  teacher?: TeacherSummary;
   isActive: boolean;
   studentCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
 
-// 仪表盘概览统计
 export interface OverviewStatistics {
   totalStudents: number;
   seniorStudents: number;
@@ -151,7 +129,6 @@ export interface OverviewStatistics {
   scoreTrend: { date: string; count: number; totalScore: number }[];
 }
 
-// 排行榜条目
 export interface LeaderboardEntry {
   rank: number;
   id: string;

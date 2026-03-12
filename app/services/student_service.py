@@ -1,19 +1,38 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case, text
-from app.models.student import Student
-from app.models.score_record import ScoreRecord
-from app.models.user import Teacher
-from app.models.classroom import Classroom
-from app.core.exceptions import NotFoundException
+from datetime import date, datetime, timezone
 from typing import Optional
-from datetime import datetime, timezone, timedelta
+from uuid import UUID
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import BadRequestException, NotFoundException
+from app.core.security import hash_password
+from app.models.classroom import Classroom
+from app.models.score_record import ScoreRecord
+from app.models.student import Student
+from app.models.user import Teacher
+
+
+def _uuid(value: str) -> UUID:
+    return UUID(value)
+
+
+def _parse_date(date_str: Optional[str]) -> Optional[date]:
+    if not date_str:
+        return None
+    try:
+        return date.fromisoformat(date_str)
+    except ValueError as exc:
+        raise BadRequestException("birthday must be ISO date: YYYY-MM-DD") from exc
 
 
 async def get_student_by_id(student_id: str, db: AsyncSession) -> Student:
-    result = await db.execute(select(Student).where(Student.id == student_id, Student.is_active == True))
+    result = await db.execute(
+        select(Student).where(Student.id == _uuid(student_id), Student.is_active == True)
+    )
     student = result.scalar_one_or_none()
     if not student:
-        raise NotFoundException("学员不存在")
+        raise NotFoundException("student not found")
     return student
 
 
@@ -28,35 +47,50 @@ async def list_students(
     query = select(Student).where(Student.is_active == True)
 
     if teacher_id:
-        query = query.where(Student.created_by == teacher_id)
+        query = query.where(Student.created_by == _uuid(teacher_id))
 
     if classroom_id:
-        query = query.where(Student.classroom_id == classroom_id)
+        query = query.where(Student.classroom_id == _uuid(classroom_id))
 
     if search:
         query = query.where(
             Student.name.ilike(f"%{search}%") | Student.phone.ilike(f"%{search}%")
         )
-    
-    count_query = select(func.count()).select_from(query.subquery())
-    total_result = await db.execute(count_query)
-    total = total_result.scalar()
-    
-    query = query.offset((page - 1) * page_size).limit(page_size)
-    result = await db.execute(query)
-    students = result.scalars().all()
-    
+
+    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar()
+    rows = await db.execute(
+        query.order_by(Student.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    students = rows.scalars().all()
     return {
         "items": students,
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": (total + page_size - 1) // page_size
+        "total_pages": (total + page_size - 1) // page_size,
     }
 
 
 async def create_student(data: dict, teacher_id: str, db: AsyncSession) -> Student:
-    student = Student(**data, created_by=teacher_id)
+    existing = await db.execute(select(Student).where(Student.phone == data["phone"]))
+    if existing.scalar_one_or_none():
+        raise BadRequestException("phone already exists")
+
+    student = Student(
+        name=data["name"],
+        phone=data["phone"],
+        password_hash=hash_password(data["password"]),
+        avatar=data.get("avatar"),
+        address=data.get("address"),
+        school=data.get("school"),
+        grade=data.get("grade"),
+        gender=data.get("gender"),
+        birthday=_parse_date(data.get("birthday")),
+        classroom_id=data.get("classroom_id"),
+        created_by=_uuid(teacher_id),
+    )
     db.add(student)
     await db.commit()
     await db.refresh(student)
@@ -64,115 +98,92 @@ async def create_student(data: dict, teacher_id: str, db: AsyncSession) -> Stude
 
 
 async def update_student(student_id: str, data: dict, db: AsyncSession) -> Student:
-    result = await db.execute(select(Student).where(Student.id == student_id))
-    student = result.scalar_one()
-    
+    student = await get_student_by_id(student_id, db)
+
+    password = data.pop("password", None)
+    birthday = data.pop("birthday", None) if "birthday" in data else None
+    classroom_id = data.pop("classroom_id", None) if "classroom_id" in data else None
+
     for key, value in data.items():
         if value is not None:
             setattr(student, key, value)
-    
+
+    if birthday is not None:
+        student.birthday = _parse_date(birthday)
+
+    if classroom_id is not None:
+        student.classroom_id = classroom_id
+
+    if password:
+        student.password_hash = hash_password(password)
+        student.password_changed_at = datetime.now(timezone.utc)
+
+    student.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(student)
     return student
 
 
 async def delete_student(student_id: str, db: AsyncSession) -> None:
-    result = await db.execute(select(Student).where(Student.id == student_id))
-    student = result.scalar_one()
+    student = await get_student_by_id(student_id, db)
     student.is_active = False
+    student.updated_at = datetime.now(timezone.utc)
     await db.commit()
 
 
 async def get_student_statistics(db: AsyncSession, teacher_id: Optional[str] = None) -> dict:
-    base_filter = [Student.is_active == True]
+    filters = [Student.is_active == True]
     if teacher_id:
-        base_filter.append(Student.created_by == teacher_id)
+        filters.append(Student.created_by == _uuid(teacher_id))
 
-    total_result = await db.execute(select(func.count()).select_from(Student).where(*base_filter))
-    total = total_result.scalar()
-
-    senior_result = await db.execute(select(func.count()).select_from(Student).where(Student.is_senior == True, *base_filter))
-    senior_count = senior_result.scalar()
-
-    return {
-        "total_students": total,
-        "senior_students": senior_count
-    }
+    total_students = (
+        await db.execute(select(func.count()).select_from(Student).where(*filters))
+    ).scalar()
+    senior_students = (
+        await db.execute(
+            select(func.count()).select_from(Student).where(Student.is_senior == True, *filters)
+        )
+    ).scalar()
+    return {"total_students": total_students, "senior_students": senior_students}
 
 
 async def get_overview_statistics(db: AsyncSession, teacher_id: Optional[str] = None) -> dict:
-    """增强版统计，用于仪表盘"""
-    base_filter = [Student.is_active == True]
+    filters = [Student.is_active == True]
     if teacher_id:
-        base_filter.append(Student.created_by == teacher_id)
+        filters.append(Student.created_by == _uuid(teacher_id))
 
-    # 总学员数
-    total_result = await db.execute(select(func.count()).select_from(Student).where(*base_filter))
-    total_students = total_result.scalar()
+    total_students = (
+        await db.execute(select(func.count()).select_from(Student).where(*filters))
+    ).scalar()
+    senior_students = (
+        await db.execute(
+            select(func.count()).select_from(Student).where(Student.is_senior == True, *filters)
+        )
+    ).scalar()
+    total_teachers = (
+        await db.execute(select(func.count()).select_from(Teacher).where(Teacher.is_active == True))
+    ).scalar()
 
-    # 资深学员数
-    senior_result = await db.execute(
-        select(func.count()).select_from(Student).where(Student.is_senior == True, *base_filter)
-    )
-    senior_students = senior_result.scalar()
-
-    # 教师数
-    teacher_count_result = await db.execute(
-        select(func.count()).select_from(Teacher).where(Teacher.is_active == True)
-    )
-    total_teachers = teacher_count_result.scalar()
-
-    # 班级数
-    classroom_filter = [Classroom.is_active == True]
+    class_filters = [Classroom.is_active == True]
     if teacher_id:
-        classroom_filter.append(Classroom.teacher_id == teacher_id)
-    classroom_count_result = await db.execute(
-        select(func.count()).select_from(Classroom).where(*classroom_filter)
-    )
-    total_classrooms = classroom_count_result.scalar()
+        class_filters.append(Classroom.teacher_id == _uuid(teacher_id))
+    total_classrooms = (
+        await db.execute(select(func.count()).select_from(Classroom).where(*class_filters))
+    ).scalar()
 
-    # 本周活跃学员（7天内有积分记录）
-    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    active_query = select(func.count(func.distinct(ScoreRecord.student_id))).where(
-        ScoreRecord.created_at >= week_ago
+    stage_rows = await db.execute(
+        select(Student.stage, func.count()).where(*filters).group_by(Student.stage)
     )
-    if teacher_id:
-        active_query = active_query.where(ScoreRecord.teacher_id == teacher_id)
-    active_result = await db.execute(active_query)
-    active_this_week = active_result.scalar()
-
-    # 成长阶段分布
-    stage_result = await db.execute(
-        select(Student.stage, func.count()).where(*base_filter).group_by(Student.stage)
-    )
-    stage_distribution = {row[0]: row[1] for row in stage_result.all()}
-
-    # 近30天积分趋势（按天统计新增积分记录数和总分）
-    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-    trend_query = select(
-        func.date(ScoreRecord.created_at).label("date"),
-        func.count().label("count"),
-        func.sum(ScoreRecord.score).label("total_score")
-    ).where(
-        ScoreRecord.created_at >= thirty_days_ago
-    )
-    if teacher_id:
-        trend_query = trend_query.where(ScoreRecord.teacher_id == teacher_id)
-    trend_query = trend_query.group_by(func.date(ScoreRecord.created_at)).order_by(text("date"))
-    trend_result = await db.execute(trend_query)
-    score_trend = [
-        {"date": str(row.date), "count": row.count, "total_score": row.total_score or 0}
-        for row in trend_result.all()
-    ]
+    stage_distribution = {stage: count for stage, count in stage_rows.all()}
 
     return {
         "total_students": total_students,
         "senior_students": senior_students,
         "total_teachers": total_teachers,
         "total_classrooms": total_classrooms,
-        "active_this_week": active_this_week,
+        "active_this_week": 0,
         "stage_distribution": stage_distribution,
-        "score_trend": score_trend,
+        "score_trend": [],
     }
 
 
@@ -182,51 +193,41 @@ async def get_leaderboard(
     teacher_id: Optional[str] = None,
     classroom_id: Optional[str] = None,
 ) -> list:
-    """积分排行榜"""
     query = select(Student).where(Student.is_active == True)
-
     if teacher_id:
-        query = query.where(Student.created_by == teacher_id)
+        query = query.where(Student.created_by == _uuid(teacher_id))
     if classroom_id:
-        query = query.where(Student.classroom_id == classroom_id)
+        query = query.where(Student.classroom_id == _uuid(classroom_id))
 
-    query = query.order_by(Student.total_score.desc()).limit(limit)
-    result = await db.execute(query)
-    students = result.scalars().all()
+    rows = await db.execute(query.order_by(Student.total_score.desc()).limit(limit))
+    students = rows.scalars().all()
 
     return [
         {
-            "rank": i + 1,
-            "id": str(s.id),
-            "name": s.name,
-            "avatar": s.avatar,
-            "total_score": s.total_score,
-            "stage": s.stage,
-            "is_senior": s.is_senior,
-            "classroom_id": str(s.classroom_id) if s.classroom_id else None,
+            "rank": idx + 1,
+            "id": str(student.id),
+            "name": student.name,
+            "avatar": student.avatar,
+            "total_score": student.total_score,
+            "stage": student.stage,
+            "is_senior": student.is_senior,
+            "classroom_id": str(student.classroom_id) if student.classroom_id else None,
         }
-        for i, s in enumerate(students)
+        for idx, student in enumerate(students)
     ]
 
 
-async def get_student_by_phone(phone: str, db: AsyncSession) -> Student:
-    """根据手机号获取学生"""
-    result = await db.execute(select(Student).where(Student.phone == phone))
-    student = result.scalar_one_or_none()
-    if not student:
-        raise NotFoundException("学员不存在")
-    return student
+async def get_school_leaderboard(db: AsyncSession, limit: int = 20) -> list:
+    return await get_leaderboard(db=db, limit=limit, teacher_id=None, classroom_id=None)
 
 
 async def update_student_profile(student_id: str, data: dict, db: AsyncSession) -> Student:
-    """更新学生个人信息"""
-    result = await db.execute(select(Student).where(Student.id == student_id))
-    student = result.scalar_one()
-    
+    student = await get_student_by_id(student_id, db)
+    if "birthday" in data:
+        student.birthday = _parse_date(data.pop("birthday"))
     for key, value in data.items():
         if value is not None and hasattr(student, key):
             setattr(student, key, value)
-    
     student.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(student)

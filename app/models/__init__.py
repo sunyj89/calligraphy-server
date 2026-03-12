@@ -4,5 +4,6 @@ from app.models.classroom import Classroom
 from app.models.book import Book
 from app.models.score_record import ScoreRecord
 from app.models.work import Work
+from app.models.work_history import WorkHistory
+from app.models.student_book_score import StudentBookScore
 from app.models.audit_log import AuditLog
-from app.models.sms_code import SmsCode

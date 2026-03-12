@@ -1,20 +1,17 @@
-import { create } from 'zustand'
-import { api } from '@/lib/api'
-import { setToken, clearToken, getToken } from '@/lib/api'
-import type { Student } from '@/types'
+import { create } from 'zustand';
+
+import { api, clearToken, getToken, setToken } from '@/lib/api';
+import type { Student } from '@/types';
 
 interface AuthState {
-  token: string | null
-  student: Student | null
-  isAuthenticated: boolean
-  isLoading: boolean
-
-  login: (phone: string, password: string) => Promise<void>
-  loginWithSms: (phone: string, code: string) => Promise<void>
-  register: (data: { phone: string; code: string; password: string; name: string }) => Promise<void>
-  logout: () => void
-  refreshProfile: () => Promise<void>
-  initialize: () => void
+  token: string | null;
+  student: Student | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (phone: string, password: string) => Promise<void>;
+  logout: () => void;
+  refreshProfile: () => Promise<void>;
+  initialize: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -24,52 +21,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
 
   login: async (phone, password) => {
-    const res = await api.login(phone, password)
-    setToken(res.accessToken)
-    set({ token: res.accessToken, isAuthenticated: true, student: res.student || null })
-    if (!res.student) {
-      await get().refreshProfile()
-    }
-  },
-
-  loginWithSms: async (phone, code) => {
-    const res = await api.loginWithSms(phone, code)
-    setToken(res.accessToken)
-    set({ token: res.accessToken, isAuthenticated: true, student: res.student || null })
-    if (!res.student) {
-      await get().refreshProfile()
-    }
-  },
-
-  register: async (data) => {
-    const res = await api.register(data)
-    setToken(res.accessToken)
-    set({ token: res.accessToken, isAuthenticated: true, student: res.student || null })
-    if (!res.student) {
-      await get().refreshProfile()
-    }
+    const res = await api.login(phone, password);
+    setToken(res.accessToken);
+    set({ token: res.accessToken, isAuthenticated: true, student: res.student || null });
+    if (!res.student) await get().refreshProfile();
   },
 
   logout: () => {
-    clearToken()
-    set({ token: null, student: null, isAuthenticated: false })
+    clearToken();
+    set({ token: null, student: null, isAuthenticated: false });
   },
 
   refreshProfile: async () => {
     try {
-      set({ isLoading: true })
-      const student = await api.getMe()
-      set({ student, isLoading: false })
+      set({ isLoading: true });
+      const student = await api.getMe();
+      set({ student, isLoading: false });
     } catch {
-      set({ isLoading: false })
+      set({ isLoading: false });
     }
   },
 
   initialize: () => {
-    const token = getToken()
-    if (token) {
-      set({ token, isAuthenticated: true })
-      get().refreshProfile()
+    const t = getToken();
+    if (t) {
+      set({ token: t, isAuthenticated: true });
+      void get().refreshProfile();
     }
   },
-}))
+}));

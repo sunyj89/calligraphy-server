@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, String
+from sqlalchemy.dialects.postgresql import UUID
 from app.models.base import Base
 
 
@@ -14,5 +14,5 @@ class AuditLog(Base):
     action = Column(String(50), nullable=False)  # create, update, delete, add_score, etc.
     target_type = Column(String(50), nullable=False)  # student, teacher, classroom, book, score
     target_id = Column(String(100), nullable=True)
-    detail = Column(JSONB, nullable=True)
+    detail = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

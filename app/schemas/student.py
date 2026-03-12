@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -6,20 +6,28 @@ from uuid import UUID
 
 class StudentCreate(BaseModel):
     name: str
-    phone: Optional[str] = None
+    phone: str = Field(..., min_length=11, max_length=11)
+    password: str = Field(..., min_length=6, max_length=50)
     avatar: Optional[str] = None
     address: Optional[str] = None
     school: Optional[str] = None
-    grade: Optional[str] = None
+    grade: str
+    gender: str
+    birthday: Optional[str] = None
+    classroom_id: Optional[UUID] = None
 
 
 class StudentUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=6, max_length=50)
     avatar: Optional[str] = None
     address: Optional[str] = None
     school: Optional[str] = None
     grade: Optional[str] = None
+    gender: Optional[str] = None
+    birthday: Optional[str] = None
+    classroom_id: Optional[UUID] = None
 
 
 class StudentResponse(BaseModel):
@@ -30,6 +38,9 @@ class StudentResponse(BaseModel):
     address: Optional[str] = None
     school: Optional[str] = None
     grade: Optional[str] = None
+    gender: Optional[str] = None
+    birthday: Optional[str] = None
+    classroom_id: Optional[UUID] = None
     total_score: int = 0
     root_score: int = 0
     trunk_score: int = 0
@@ -41,8 +52,7 @@ class StudentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class StudentListResponse(BaseModel):

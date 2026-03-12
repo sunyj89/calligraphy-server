@@ -1,10 +1,9 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, wechat_auth, students, scores, books, works, upload, teachers, classrooms, audit_logs, student_auth, student_profile
+from app.api.endpoints import auth, students, scores, books, works, upload, teachers, classrooms, audit_logs, student_auth, student_profile
 
 router = APIRouter()
 
 router.include_router(auth.router)
-router.include_router(wechat_auth.router)
 router.include_router(student_auth.router)
 router.include_router(student_profile.router)
 router.include_router(teachers.router)
