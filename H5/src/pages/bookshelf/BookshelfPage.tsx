@@ -1,28 +1,51 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStudentStore } from '@/stores/student'
+import { BookOpen, Images, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BookOpen, Star } from 'lucide-react'
+import { useStudentStore } from '@/stores/student'
+import type { Work } from '@/types'
 
 const SEGMENTS = [
-  { key: 'all', label: '全部' },
-  { key: 'stroke', label: '笔画 1-16' },
-  { key: 'structure', label: '结构 17-25' },
-]
+  { key: 'books', label: '练习册' },
+  { key: 'works', label: '我的作品' },
+] as const
+
+type SegmentKey = (typeof SEGMENTS)[number]['key']
 
 export function BookshelfPage() {
   const navigate = useNavigate()
-  const { books, booksLoading, fetchBooks } = useStudentStore()
-  const [segment, setSegment] = useState('all')
+  const { books, booksLoading, works, worksLoading, fetchBooks, fetchWorks } = useStudentStore()
+  const [segment, setSegment] = useState<SegmentKey>('books')
 
-  useEffect(() => { fetchBooks() }, [fetchBooks])
+  useEffect(() => {
+    fetchBooks()
+    fetchWorks()
+  }, [fetchBooks, fetchWorks])
 
-  const filteredBooks = books.filter(b => {
-    if (segment === 'stroke') return b.category === 'root'
-    if (segment === 'structure') return b.category === 'trunk'
-    return true
-  })
-  const isGrid = segment !== 'all'
+  const worksByBook = new Map<string, Work[]>()
+  for (const work of works) {
+    if (!work.bookId) {
+      continue
+    }
+
+    const bookWorks = worksByBook.get(work.bookId) || []
+    bookWorks.push(work)
+    bookWorks.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    worksByBook.set(work.bookId, bookWorks)
+  }
+
+  const recentWorks = [...works].sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+  )
+
+  const openLatestWork = (bookId: string) => {
+    const latestWork = worksByBook.get(bookId)?.[0]
+    if (latestWork) {
+      navigate(`/works/${latestWork.id}`)
+    }
+  }
+
+  const isLoading = segment === 'books' ? booksLoading : worksLoading
 
   return (
     <div className="flex flex-col h-full">
@@ -32,95 +55,108 @@ export function BookshelfPage() {
 
       <div className="flex items-center justify-between px-5 py-3">
         <h1 className="text-[22px] font-semibold tracking-tight">练习书架</h1>
-        <div className="flex items-center gap-1">
-          <BookOpen size={16} className="text-text-secondary" />
-          <span className="text-xs font-semibold text-text-secondary">{books.length}本</span>
+        <div className="flex items-center gap-1 text-text-secondary">
+          {segment === 'books' ? <BookOpen size={16} /> : <Images size={16} />}
+          <span className="text-xs font-semibold">{segment === 'books' ? `${books.length} 本` : `${works.length} 幅`}</span>
         </div>
       </div>
 
-      {/* 分段控制 */}
       <div className="px-5 pb-2">
         <div className="flex rounded-tag border border-border overflow-hidden">
-          {SEGMENTS.map((seg, i) => (
+          {SEGMENTS.map((item, index) => (
             <button
-              key={seg.key}
-              onClick={() => setSegment(seg.key)}
+              key={item.key}
+              onClick={() => setSegment(item.key)}
               className={cn(
                 'flex-1 py-2.5 text-[13px] font-medium text-center',
-                segment === seg.key ? 'bg-primary text-white rounded-lg' : 'text-text-secondary',
-                i > 0 && segment !== seg.key && 'border-l border-border'
+                segment === item.key ? 'bg-primary text-white rounded-lg' : 'text-text-secondary',
+                index > 0 && segment !== item.key && 'border-l border-border'
               )}
             >
-              {seg.label}
+              {item.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 列表/网格 */}
       <div className="flex-1 overflow-y-auto px-5 py-1">
-        {booksLoading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : isGrid ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            {filteredBooks.map(book => {
-              const hasProgress = book.currentScore > 0
+        ) : segment === 'books' ? (
+          <div className="flex flex-col gap-3">
+            {books.map((book) => {
+              const bookWorks = worksByBook.get(book.id) || []
+              const latestWork = bookWorks[0]
+              const submittedCount = bookWorks.length
+
               return (
-                <div key={book.id} onClick={() => navigate(`/works/${book.id}`)} className={cn('border border-divider rounded-input p-3 flex flex-col gap-2', !hasProgress && 'opacity-50')}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-tertiary font-number">{String(book.orderNum).padStart(2, '0')}</span>
-                    {hasProgress && <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-medium">进行中</span>}
-                  </div>
-                  <h3 className="text-sm font-semibold">{book.name}</h3>
-                  {hasProgress && (
-                    <>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, (book.currentScore / book.maxScore) * 100)}%` }} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-text-tertiary">{book.currentScore}/{book.maxScore}</span>
-                        <div className="flex gap-0.5">
-                          {[book.scores.level5, book.scores.level20, book.scores.level50].map((achieved, i) => (
-                            <Star key={i} size={12} className={achieved ? 'text-primary fill-primary' : 'text-gray-300'} />
-                          ))}
-                        </div>
-                      </div>
-                    </>
+                <button
+                  key={book.id}
+                  onClick={() => openLatestWork(book.id)}
+                  disabled={!latestWork}
+                  data-testid="h5-book-card"
+                  className={cn(
+                    'w-full rounded-card border border-divider p-4 text-left transition',
+                    latestWork ? 'bg-white' : 'bg-[#FAFAFA]'
                   )}
-                </div>
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-text-tertiary font-number mb-1">
+                        第 {String(book.orderNum).padStart(2, '0')} 册
+                      </p>
+                      <h3 className="text-base font-semibold">{book.name}</h3>
+                      <p className="text-sm text-text-tertiary mt-1 leading-6">
+                        {book.description || '老师布置的练习内容会按册归档在这里。'}
+                      </p>
+                    </div>
+                    <ChevronRight size={18} className="text-[#CCCCCC] shrink-0 mt-1" />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-xs text-text-tertiary">
+                    <span>已提交作品 {submittedCount} 幅</span>
+                    <span>{latestWork ? `最近提交 ${new Date(latestWork.createdAt).toLocaleDateString('zh-CN')}` : '暂未提交作品'}</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        ) : recentWorks.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 pb-4">
+            {recentWorks.map((work) => {
+              const book = books.find((item) => item.id === work.bookId)
+              return (
+                <button
+                  key={work.id}
+                  onClick={() => navigate(`/works/${work.id}`)}
+                  data-testid="h5-work-card"
+                  className="rounded-card overflow-hidden border border-divider bg-white text-left"
+                >
+                  <div className="aspect-[4/5] bg-primary-lighter">
+                    <img
+                      src={work.thumbnailUrl || work.imageUrl}
+                      alt={work.description || '作品'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-semibold truncate">{work.description || '练习作品'}</p>
+                    <p className="text-xs text-text-tertiary mt-1 truncate">{book?.name || '未关联练习册'}</p>
+                    <p className="text-xs text-text-tertiary mt-1">
+                      {new Date(work.createdAt).toLocaleDateString('zh-CN')}
+                    </p>
+                  </div>
+                </button>
               )
             })}
           </div>
         ) : (
-          <div className="flex flex-col">
-            {filteredBooks.map(book => {
-              const hasProgress = book.currentScore > 0
-              return (
-                <div key={book.id} onClick={() => navigate(`/works/${book.id}`)} className={cn('flex items-center justify-between py-3.5 border-b border-divider', !hasProgress && 'opacity-50')}>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs text-text-tertiary font-number w-5">{String(book.orderNum).padStart(2, '0')}</span>
-                    <span className="text-sm font-medium">{book.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {hasProgress && (
-                      <>
-                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, (book.currentScore / book.maxScore) * 100)}%` }} />
-                        </div>
-                        <span className="text-xs text-text-tertiary font-number">{book.currentScore}/{book.maxScore}</span>
-                        <div className="flex gap-0.5">
-                          {[book.scores.level5, book.scores.level20, book.scores.level50].map((achieved, i) => (
-                            <Star key={i} size={10} className={achieved ? 'text-primary fill-primary' : 'text-gray-300'} />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+          <div className="rounded-card bg-primary-lighter px-5 py-8 text-center text-sm text-text-tertiary leading-6">
+            你还没有提交作品。
+            <br />
+            完成练习后，老师上传或记录的作品会展示在这里。
           </div>
         )}
       </div>

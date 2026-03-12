@@ -1,14 +1,13 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, DateTime, String, Uuid
 from app.models.base import Base
 
 
 class Teacher(Base):
     __tablename__ = "teachers"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(50), nullable=False)
     phone = Column(String(20), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_PASSWORD: str = ""
+    USE_FAKE_REDIS: bool = False
     
     SECRET_KEY: str = "change-this-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440

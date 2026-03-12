@@ -9,7 +9,7 @@ const SENIOR_THRESHOLD = 4500;
 const HOMEWORK_MULTIPLIER = 2;
 
 // 计算学员阶段
-export function calculateStage(totalScore: number, _rootScore: number, _trunkScore: number): Student['stage'] {
+export function calculateStage(totalScore: number): Student['stage'] {
   if (totalScore >= 9000) return 'fruitful';
   if (totalScore >= 7500) return 'xlarge';
   if (totalScore >= 6000) return 'large';

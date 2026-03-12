@@ -1,101 +1,130 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+async def login_student(client):
+    response = await client.post(
+        "/api/auth/student/login",
+        json={"phone": "13700000000", "password": "test123456"},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
 
 
-class TestStudentAuth:
-    """学生认证 API 测试 - 使用真实数据库"""
+async def test_student_login_with_password(client):
+    response = await client.post(
+        "/api/auth/student/login",
+        json={"phone": "13700000000", "password": "test123456"},
+    )
 
-    @pytest.fixture
-    async def client(self):
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            yield ac
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["student"]["phone"] == "13700000000"
+    assert payload["access_token"]
 
-    async def test_send_sms_code(self, client: AsyncClient):
-        """测试发送验证码"""
-        response = await client.post("/api/auth/student/sms-code", json={
-            "phone": "13912345678"
-        })
-        assert response.status_code == 200
-        data = response.json()
-        assert "888888" in data["message"] or "发送" in data["message"]
 
-    async def test_student_login(self, client: AsyncClient):
-        """测试账号密码登录"""
-        response = await client.post("/api/auth/student/login", json={
-            "phone": "13700000000",
-            "password": "test123456"
-        })
-        assert response.status_code == 200
-        data = response.json()
-        assert "access_token" in data
-        assert data["student"]["phone"] == "13700000000"
+async def test_student_login_rejects_wrong_password(client):
+    response = await client.post(
+        "/api/auth/student/login",
+        json={"phone": "13700000000", "password": "wrongpassword"},
+    )
 
-    async def test_student_login_wrong_password(self, client: AsyncClient):
-        """测试错误密码登录"""
-        response = await client.post("/api/auth/student/login", json={
-            "phone": "13700000000",
-            "password": "wrongpassword"
-        })
-        assert response.status_code == 401
+    assert response.status_code == 401
 
-    async def test_get_student_profile(self, client: AsyncClient):
-        """测试获取学生信息"""
-        login_response = await client.post("/api/auth/student/login", json={
-            "phone": "13700000000",
-            "password": "test123456"
-        })
-        token = login_response.json()["access_token"]
-        
-        response = await client.get(
-            "/api/student/me",
-            headers={"Authorization": f"Bearer {token}"}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["phone"] == "13700000000"
-        assert data["totalScore"] == 4587
 
-    async def test_update_student_profile(self, client: AsyncClient):
-        """测试修改学生信息"""
-        login_response = await client.post("/api/auth/student/login", json={
-            "phone": "13700000000",
-            "password": "test123456"
-        })
-        token = login_response.json()["access_token"]
-        
-        response = await client.put(
-            "/api/student/profile",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"name": "新名字"}
-        )
-        assert response.status_code == 200
-        assert response.json()["name"] == "新名字"
+async def test_get_student_profile(client):
+    token = await login_student(client)
 
-    async def test_change_password(self, client: AsyncClient):
-        """测试修改密码"""
-        login_response = await client.post("/api/auth/student/login", json={
-            "phone": "13700000000",
-            "password": "test123456"
-        })
-        token = login_response.json()["access_token"]
-        
-        response = await client.put(
-            "/api/student/password",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"old_password": "test123456", "new_password": "newpass123"}
-        )
-        assert response.status_code == 200
-        
-        login_response2 = await client.post("/api/auth/student/login", json={
-            "phone": "13700000000",
-            "password": "newpass123"
-        })
-        assert login_response2.status_code == 200
-        
-        await client.put(
-            "/api/student/password",
-            headers={"Authorization": f"Bearer {login_response2.json()['access_token']}"},
-            json={"old_password": "newpass123", "new_password": "test123456"}
-        )
+    response = await client.get(
+        "/api/student/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["phone"] == "13700000000"
+    assert payload["total_score"] == 4587
+
+
+async def test_update_student_profile(client):
+    token = await login_student(client)
+
+    response = await client.put(
+        "/api/student/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "新名字"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "新名字"
+
+
+async def test_change_student_password(client):
+    token = await login_student(client)
+
+    response = await client.put(
+        "/api/student/password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"old_password": "test123456", "new_password": "newpass123"},
+    )
+
+    assert response.status_code == 200
+
+    login_response = await client.post(
+        "/api/auth/student/login",
+        json={"phone": "13700000000", "password": "newpass123"},
+    )
+    assert login_response.status_code == 200
+
+
+async def test_student_logout_blacklists_token(client):
+    token = await login_student(client)
+
+    me_response = await client.get(
+        "/api/student/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_response.status_code == 200
+
+    logout_response = await client.post(
+        "/api/auth/student/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert logout_response.status_code == 200
+
+    me_after_logout = await client.get(
+        "/api/student/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_after_logout.status_code == 401
+
+
+async def test_student_sms_routes_are_removed(client):
+    response = await client.post(
+        "/api/auth/student/sms-code",
+        json={"phone": "13912345678"},
+    )
+
+    assert response.status_code == 404
+
+    response = await client.post(
+        "/api/auth/student/sms-login",
+        json={"phone": "13912345678", "code": "888888"},
+    )
+
+    assert response.status_code == 404
+
+
+async def test_student_register_route_is_removed(client):
+    response = await client.post(
+        "/api/auth/student/register",
+        json={
+            "phone": "13912345678",
+            "code": "888888",
+            "password": "test123456",
+            "name": "新用户",
+        },
+    )
+
+    assert response.status_code == 404
+
+
+async def test_wechat_routes_are_removed(client):
+    response = await client.post("/api/auth/wechat/login", json={"code": "mock-code"})
+    assert response.status_code == 404

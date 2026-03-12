@@ -8,7 +8,7 @@ test.describe('认证流程', () => {
     // 清除 localStorage 确保从未登录状态开始
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
-    await page.reload();
+    await page.goto('/');
   });
 
   test('未登录时显示登录页面', async ({ page }) => {

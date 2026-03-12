@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !!getToken());
 
   useEffect(() => {
     const token = getToken();
@@ -24,8 +24,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(setTeacher)
         .catch(() => clearToken())
         .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
     }
   }, []);
 

@@ -63,7 +63,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers,
   })
 
-  if (response.status === 401) {
+  if (response.status === 401 && token) {
     clearToken()
     window.location.href = `${import.meta.env.BASE_URL}login`
     throw new Error('登录已过期，请重新登录')
@@ -109,24 +109,6 @@ export const api = {
       body: JSON.stringify({ phone, password }),
     }),
 
-  loginWithSms: (phone: string, code: string) =>
-    request<LoginResponse>('/auth/student/sms-login', {
-      method: 'POST',
-      body: JSON.stringify({ phone, code }),
-    }),
-
-  sendSmsCode: (phone: string) =>
-    request<{ message: string }>('/auth/student/sms-code', {
-      method: 'POST',
-      body: JSON.stringify({ phone }),
-    }),
-
-  register: (data: { phone: string; code: string; password: string; name: string }) =>
-    request<LoginResponse>('/auth/student/register', {
-      method: 'POST',
-      body: JSON.stringify(transformKeysToSnake(data)),
-    }),
-
   // 学生信息
   getMe: () => request<Student>('/student/me'),
 
@@ -140,12 +122,6 @@ export const api = {
     request<{ message: string }>('/student/password', {
       method: 'PUT',
       body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
-    }),
-
-  changePhone: (newPhone: string, code: string) =>
-    request<{ message: string }>('/student/phone', {
-      method: 'PUT',
-      body: JSON.stringify({ new_phone: newPhone, code }),
     }),
 
   // 积分记录

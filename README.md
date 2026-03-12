@@ -53,6 +53,48 @@ npm run dev
 
 前端运行在 http://localhost:5173，`/api` 请求会自动代理到后端。
 
+### 无 Docker 的本地开发模式
+
+如果当前机器没有启动 Docker，也可以直接使用项目内置的本地开发脚本：
+
+```bash
+python scripts/local_dev_server.py
+```
+
+这个脚本会自动：
+- 使用 `SQLite` 作为本地数据库
+- 使用 `FakeRedis` 代替本地 Redis 服务
+- 在首次启动时初始化种子数据
+- 启动后端 API 到 `http://127.0.0.1:8000`
+
+前端和 H5 可分别启动：
+
+```bash
+cd frontend
+npm run dev -- --host 127.0.0.1
+
+cd ../H5
+npm run dev -- --host 127.0.0.1 --port 4173
+```
+
+### 一键运行本地 UAT 回归
+
+```bash
+python scripts/run_e2e.py
+```
+
+这个脚本会自动启动：
+- 本地后端 API
+- Web 管理后台
+- H5 学生端
+- Playwright 端到端测试
+
+如果只想跑某一组 E2E，例如学生端：
+
+```bash
+python scripts/run_e2e.py tests/student.spec.ts
+```
+
 ### 默认账号
 
 | 角色 | 手机号 | 密码 |

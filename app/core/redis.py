@@ -8,17 +8,26 @@ _redis_client: Optional[redis.Redis] = None
 async def get_redis() -> redis.Redis:
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.from_url(
-            settings.REDIS_URL,
-            password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
-            encoding="utf-8",
-            decode_responses=True
-        )
+        if settings.USE_FAKE_REDIS:
+            import fakeredis.aioredis
+
+            _redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        else:
+            _redis_client = redis.from_url(
+                settings.REDIS_URL,
+                password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
+                encoding="utf-8",
+                decode_responses=True
+            )
     return _redis_client
 
 
 async def close_redis():
     global _redis_client
     if _redis_client:
-        await _redis_client.close()
+        close = getattr(_redis_client, "aclose", None) or getattr(_redis_client, "close", None)
+        if close:
+            result = close()
+            if hasattr(result, "__await__"):
+                await result
         _redis_client = None

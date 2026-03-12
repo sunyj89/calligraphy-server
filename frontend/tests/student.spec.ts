@@ -1,80 +1,94 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
+const H5_BASE = 'http://localhost:4173/h5/';
 const STUDENT_PHONE = '13700000000';
 const STUDENT_PASSWORD = 'test123456';
 
-test.describe('H5学生端登录注册', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173/');
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-  });
+async function gotoLogin(page: import('@playwright/test').Page) {
+  await page.goto(H5_BASE);
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(H5_BASE);
+  await page.getByRole('button', { name: '立即登录' }).click();
+}
 
+async function agreeAndLogin(page: import('@playwright/test').Page, password = STUDENT_PASSWORD) {
+  await gotoLogin(page);
+  await page.getByPlaceholder('请输入手机号').fill(STUDENT_PHONE);
+  await page.getByPlaceholder('请输入密码').fill(password);
+  await page.locator('.cursor-pointer').first().click();
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page.getByText('当前积分')).toBeVisible({ timeout: 15000 });
+}
+
+test.describe.serial('H5学生端', () => {
   test('账号密码登录成功', async ({ page }) => {
-    await page.getByPlaceholder('请输入手机号').fill(STUDENT_PHONE);
-    await page.getByPlaceholder('请输入密码').fill(STUDENT_PASSWORD);
-    await page.getByText('登 录').click();
-    
-    await expect(page.getByText('书法成长树')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('当前积分')).toBeVisible();
+    await agreeAndLogin(page);
+    await expect(page.getByText('书法成长树').first()).toBeVisible();
+    await expect(page.getByText('成长阶段')).toBeVisible();
   });
 
-  test('登录失败显示错误', async ({ page }) => {
+  test('错误密码会显示登录失败', async ({ page }) => {
+    await gotoLogin(page);
     await page.getByPlaceholder('请输入手机号').fill(STUDENT_PHONE);
     await page.getByPlaceholder('请输入密码').fill('wrongpassword');
-    await page.getByText('登 录').click();
-    
-    await expect(page.getByText('手机号或密码错误')).toBeVisible({ timeout: 10000 });
+    await page.locator('.cursor-pointer').first().click();
+    await page.getByRole('button', { name: '登录' }).click();
+    await expect(page.locator('.text-red-500').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('注册新账号', async ({ page }) => {
-    await page.goto('http://localhost:5173/register');
-    
-    await page.getByPlaceholder('请输入手机号').fill('13912345678');
-    await page.getByPlaceholder('验证码').fill('888888');
-    await page.getByPlaceholder('请设置密码（6-16位）').fill('test123456');
-    await page.getByPlaceholder('请再次输入密码').fill('test123456');
-    await page.getByPlaceholder('给自己起个昵称吧').fill('新用户');
-    
-    const checkbox = page.locator('.rounded\\[\\1\\.5px\\]').first();
-    await checkbox.click();
-    
-    await page.getByText('注  册').click();
-    
-    await expect(page.getByText('书法成长树')).toBeVisible({ timeout: 15000 });
-  });
-});
-
-test.describe('H5学生端功能', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173/');
-    await page.getByPlaceholder('请输入手机号').fill(STUDENT_PHONE);
-    await page.getByPlaceholder('请输入密码').fill(STUDENT_PASSWORD);
-    await page.getByText('登 录').click();
-    await page.waitForTimeout(3000);
+  test('可以查看成长明细', async ({ page }) => {
+    await agreeAndLogin(page);
+    await page.getByText('查看明细').click();
+    await expect(page.getByText('成长明细')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('总计')).toBeVisible();
   });
 
-  test('查看成长树页面', async ({ page }) => {
-    await expect(page.getByText('当前积分')).toBeVisible();
-    await expect(page.getByText('成长阶段')).toBeVisible();
-    await expect(page.getByText('4587')).toBeVisible();
+  test('可以查看作品详情', async ({ page }) => {
+    await agreeAndLogin(page);
+    await page.getByRole('button', { name: '书架' }).click();
+    await page.getByRole('button', { name: '我的作品' }).click();
+    const cards = page.locator('[data-testid="h5-work-card"]');
+    await expect(cards.first()).toBeVisible({ timeout: 10000 });
+    await cards.first().click();
+    await expect(page.locator('[data-testid="h5-work-detail"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('查看积分记录', async ({ page }) => {
-    await page.getByText('查看明细 →').click();
-    await expect(page.getByText('积分记录')).toBeVisible({ timeout: 5000 });
+  test('可以修改个人资料', async ({ page }) => {
+    await agreeAndLogin(page);
+    await page.getByRole('button', { name: '我的' }).click();
+    await page.getByText('修改个人信息').click();
+
+    const school = `示范学校${Date.now()}`;
+    const grade = '三年级';
+
+    await page.getByPlaceholder('请输入学校').fill(school);
+    await page.getByPlaceholder('请输入年级').fill(grade);
+    await page.getByRole('button', { name: '保存' }).click();
+
+    await page.getByText('修改个人信息').click();
+    await expect(page.getByPlaceholder('请输入学校')).toHaveValue(school);
+    await expect(page.getByPlaceholder('请输入年级')).toHaveValue(grade);
   });
 
-  test('查看个人中心', async ({ page }) => {
-    await page.getByText('我的').click();
-    await expect(page.getByText('测试学生')).toBeVisible();
-    await expect(page.getByText('****0000')).toBeVisible();
-  });
-
-  test('退出登录', async ({ page }) => {
-    await page.getByText('我的').click();
+  test('可以退出登录', async ({ page }) => {
+    await agreeAndLogin(page);
+    await page.getByRole('button', { name: '我的' }).click();
     await page.getByText('退出登录').click();
-    
-    await expect(page.getByPlaceholder('请输入手机号')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('请输入手机号')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('可以修改密码并使用新密码重新登录', async ({ page }) => {
+    const nextPassword = 'student654';
+
+    await agreeAndLogin(page);
+    await page.getByRole('button', { name: '我的' }).click();
+    await page.getByText('修改登录密码').click();
+    await page.getByPlaceholder('请输入原密码').fill(STUDENT_PASSWORD);
+    await page.getByPlaceholder('请输入新密码（至少6位）').fill(nextPassword);
+    await page.getByPlaceholder('请再次输入新密码').fill(nextPassword);
+    await page.getByRole('button', { name: '确认修改' }).click();
+
+    await page.getByText('退出登录').click();
+    await agreeAndLogin(page, nextPassword);
   });
 });

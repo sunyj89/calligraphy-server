@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir \
 COPY app /app/app
 COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
-# COPY uploads /app/uploads
+COPY scripts /app/scripts
 RUN mkdir -p /app/uploads
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app

@@ -6,7 +6,8 @@ from uuid import UUID
 
 class StudentCreate(BaseModel):
     name: str
-    phone: Optional[str] = None
+    phone: str
+    password: str
     avatar: Optional[str] = None
     address: Optional[str] = None
     school: Optional[str] = None
@@ -16,6 +17,7 @@ class StudentCreate(BaseModel):
 class StudentUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    password: Optional[str] = None
     avatar: Optional[str] = None
     address: Optional[str] = None
     school: Optional[str] = None

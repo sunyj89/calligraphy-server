@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.base import get_db
 from app.api.dependencies import get_current_teacher
@@ -9,6 +10,7 @@ from app.core.security import decode_jwt, add_to_blacklist
 from app.core.redis import get_redis
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -19,10 +21,14 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/logout")
 async def logout(
+    token: str = Depends(oauth2_scheme),
     current_teacher: Teacher = Depends(get_current_teacher),
     redis=Depends(get_redis)
 ):
-    token_info = decode_jwt("")
+    token_info = decode_jwt(token)
+    jti = token_info.get("jti")
+    if jti:
+        await add_to_blacklist(jti, redis)
     return {"message": "退出成功"}
 
 
