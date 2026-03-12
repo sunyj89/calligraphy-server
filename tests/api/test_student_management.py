@@ -1,7 +1,7 @@
 async def login_teacher(client):
     response = await client.post(
         "/api/auth/login",
-        json={"phone": "13800000000", "password": "teacher123"},
+        json={"phone": "13800000000", "password": "123456"},
     )
     assert response.status_code == 200
     return response.json()["access_token"]
@@ -18,6 +18,8 @@ async def test_teacher_can_create_student_with_password_and_student_can_login(cl
             "phone": "13600000001",
             "password": "student123",
             "school": "示范小学",
+            "grade": "2",
+            "gender": "male",
         },
     )
 

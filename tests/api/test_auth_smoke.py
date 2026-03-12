@@ -1,7 +1,7 @@
 async def test_student_password_login_smoke(client):
     response = await client.post(
         "/api/auth/student/login",
-        json={"phone": "13700000000", "password": "test123456"},
+        json={"phone": "13700000000", "password": "111111"},
     )
 
     assert response.status_code == 200
