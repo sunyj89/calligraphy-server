@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "calligraphy-backend"
-version = "1.4.0"
+version = "1.5.0"
 description = "书法成长树小程序后端"
 authors = ["Developer"]
 
