@@ -9,10 +9,10 @@ from app.models.base import Base
 from scripts.seed_demo_data import seed_demo_data
 
 BASE_BOOKS = [
-    {"name": "第一册-基础笔画(一)", "order_num": 1, "description": "横竖撇捺基础训练"},
-    {"name": "第二册-基础笔画(二)", "order_num": 2, "description": "点折钩提进阶训练"},
-    {"name": "第三册-简单汉字(一)", "order_num": 3, "description": "常用汉字起步"},
-    {"name": "第四册-简单汉字(二)", "order_num": 4, "description": "自然主题汉字"},
+    {"name": "Starter Book 1", "order_num": 1, "description": "Base practice book 1"},
+    {"name": "Starter Book 2", "order_num": 2, "description": "Base practice book 2"},
+    {"name": "Starter Book 3", "order_num": 3, "description": "Base practice book 3"},
+    {"name": "Starter Book 4", "order_num": 4, "description": "Base practice book 4"},
 ]
 
 
@@ -25,13 +25,13 @@ async def init_db() -> None:
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         admin = Teacher(
-            name="管理员",
+            name="System Admin",
             phone="13900000000",
             password_hash=hash_password("admin123"),
             role="admin",
         )
         teacher = Teacher(
-            name="张老师",
+            name="Teacher Zhang",
             phone="13800000000",
             password_hash=hash_password("123456"),
             role="teacher",
@@ -40,9 +40,9 @@ async def init_db() -> None:
         await session.flush()
 
         classroom = Classroom(
-            name="一年级1班",
+            name="Class 1",
             grade_year="1",
-            description="系统默认演示班级",
+            description="Base classroom for local development",
             teacher_id=teacher.id,
         )
         session.add(classroom)
@@ -53,11 +53,12 @@ async def init_db() -> None:
 
         session.add(
             Student(
-                name="测试学生",
+                name="Test Student",
                 phone="13700000000",
                 password_hash=hash_password("111111"),
                 grade="1",
                 gender="male",
+                school="Local Primary School",
                 classroom_id=classroom.id,
                 created_by=teacher.id,
             )
@@ -70,7 +71,7 @@ async def init_db() -> None:
     print("Base teacher: 13800000000 / 123456")
     print("Base student: 13700000000 / 111111")
     print("Demo admin: 13990000001 / admin123")
-    print("Demo teachers: 13990000002 / 123456, 13990000003 / 123456")
+    print("Demo teachers: 13990000002 / 123456, 13990000003 / 123456, 13990000004 / 123456")
     await engine.dispose()
 
 

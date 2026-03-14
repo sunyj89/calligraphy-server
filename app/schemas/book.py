@@ -30,6 +30,16 @@ class BookResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StudentBookResponse(BookResponse):
+    is_lit: bool = False
+    lit_score: int = 0
+
+
 class BookListResponse(BaseModel):
     items: list[BookResponse]
+    total: int
+
+
+class StudentBookListResponse(BaseModel):
+    items: list[StudentBookResponse]
     total: int

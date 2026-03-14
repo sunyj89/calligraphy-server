@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 
@@ -13,7 +13,7 @@ class StudentCreate(BaseModel):
     school: Optional[str] = None
     grade: str
     gender: str
-    birthday: Optional[str] = None
+    birthday: Optional[date] = None
     classroom_id: Optional[UUID] = None
 
 
@@ -26,7 +26,7 @@ class StudentUpdate(BaseModel):
     school: Optional[str] = None
     grade: Optional[str] = None
     gender: Optional[str] = None
-    birthday: Optional[str] = None
+    birthday: Optional[date] = None
     classroom_id: Optional[UUID] = None
 
 
@@ -39,7 +39,7 @@ class StudentResponse(BaseModel):
     school: Optional[str] = None
     grade: Optional[str] = None
     gender: Optional[str] = None
-    birthday: Optional[str] = None
+    birthday: Optional[date] = None
     classroom_id: Optional[UUID] = None
     total_score: int = 0
     root_score: int = 0

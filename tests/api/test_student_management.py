@@ -14,17 +14,21 @@ async def test_teacher_can_create_student_with_password_and_student_can_login(cl
         "/api/students",
         headers={"Authorization": f"Bearer {teacher_token}"},
         json={
-            "name": "新建学员",
+            "name": "New Student",
             "phone": "13600000001",
             "password": "student123",
-            "school": "示范小学",
+            "school": "Sample Primary School",
+            "address": "Library Road 8",
             "grade": "2",
             "gender": "male",
+            "birthday": "2017-01-01",
         },
     )
 
     assert create_response.status_code == 200
     assert create_response.json()["phone"] == "13600000001"
+    assert create_response.json()["address"] == "Library Road 8"
+    assert create_response.json()["birthday"] == "2017-01-01"
 
     login_response = await client.post(
         "/api/auth/student/login",

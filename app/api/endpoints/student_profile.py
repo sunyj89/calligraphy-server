@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_student
 from app.models.base import get_db
 from app.models.student import Student
-from app.schemas.book import BookListResponse
+from app.schemas.book import StudentBookListResponse
 from app.schemas.score import ScoreListResponse
 from app.schemas.student_auth import ChangePasswordRequest, StudentAuthResponse
 from app.schemas.work import WorkListResponse, WorkResponse
@@ -19,12 +19,13 @@ async def get_me(current_student: Student = Depends(get_current_student)):
     return current_student
 
 
-@router.get("/books", response_model=BookListResponse)
+@router.get("/books", response_model=StudentBookListResponse)
 async def get_student_books(
+    term: str | None = Query(None),
     current_student: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db),
 ):
-    books = await book_service.get_all_books(db)
+    books = await book_service.get_books_for_student(str(current_student.id), db, term=term)
     return {"items": books, "total": len(books)}
 
 
@@ -126,6 +127,7 @@ async def get_school_leaderboard(
 class ProfileUpdateRequest(BaseModel):
     name: str | None = None
     avatar: str | None = None
+    address: str | None = None
     gender: str | None = None
     birthday: str | None = None
     school: str | None = None

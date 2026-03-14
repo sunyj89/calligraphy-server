@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 
 class AppException(HTTPException):
@@ -7,20 +7,20 @@ class AppException(HTTPException):
 
 
 class UnauthorizedException(AppException):
-    def __init__(self, detail: str = "未授权"):
+    def __init__(self, detail: str = "unauthorized"):
         super().__init__(status_code=401, detail=detail)
 
 
 class NotFoundException(AppException):
-    def __init__(self, detail: str = "资源不存在"):
+    def __init__(self, detail: str = "resource not found"):
         super().__init__(status_code=404, detail=detail)
 
 
 class BadRequestException(AppException):
-    def __init__(self, detail: str = "请求错误"):
+    def __init__(self, detail: str = "bad request"):
         super().__init__(status_code=400, detail=detail)
 
 
 class ForbiddenException(AppException):
-    def __init__(self, detail: str = "禁止访问"):
+    def __init__(self, detail: str = "forbidden"):
         super().__init__(status_code=403, detail=detail)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 
@@ -19,8 +19,9 @@ class StudentAuthResponse(BaseModel):
     name: str
     phone: str
     avatar: Optional[str] = None
+    address: Optional[str] = None
     gender: Optional[str] = None
-    birthday: Optional[str] = None
+    birthday: Optional[date] = None
     school: Optional[str] = None
     grade: Optional[str] = None
     total_score: int
@@ -30,7 +31,9 @@ class StudentAuthResponse(BaseModel):
     fruit_count: int
     stage: str
     is_senior: bool
+    is_active: bool
     classroom_id: Optional[UUID] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

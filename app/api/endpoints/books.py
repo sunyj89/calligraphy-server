@@ -1,18 +1,19 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.dependencies import get_current_admin, get_current_teacher
 from app.models.base import get_db
-from app.api.dependencies import get_current_teacher, get_current_admin
 from app.models.user import Teacher
-from app.schemas.book import BookCreate, BookUpdate, BookListResponse, BookResponse
+from app.schemas.book import BookCreate, BookListResponse, BookResponse, BookUpdate
 from app.services import book_service
 
-router = APIRouter(prefix="/api/books", tags=["练习册"])
+router = APIRouter(prefix="/api/books", tags=["books"])
 
 
 @router.get("", response_model=BookListResponse)
 async def list_books(
     db: AsyncSession = Depends(get_db),
-    current_teacher: Teacher = Depends(get_current_teacher)
+    current_teacher: Teacher = Depends(get_current_teacher),
 ):
     books = await book_service.get_all_books(db)
     return {"items": books, "total": len(books)}
@@ -22,7 +23,7 @@ async def list_books(
 async def get_book(
     book_id: str,
     db: AsyncSession = Depends(get_db),
-    current_teacher: Teacher = Depends(get_current_teacher)
+    current_teacher: Teacher = Depends(get_current_teacher),
 ):
     return await book_service.get_book_by_id(book_id, db)
 
@@ -53,4 +54,4 @@ async def delete_book(
     admin: Teacher = Depends(get_current_admin),
 ):
     await book_service.delete_book(book_id, db)
-    return {"message": "已删除"}
+    return {"message": "delete success"}

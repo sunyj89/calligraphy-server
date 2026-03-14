@@ -17,11 +17,13 @@ def _uuid(value: str) -> UUID:
     return UUID(value)
 
 
-def _parse_date(date_str: Optional[str]) -> Optional[date]:
-    if not date_str:
+def _parse_date(date_value: Optional[str | date]) -> Optional[date]:
+    if not date_value:
         return None
+    if isinstance(date_value, date):
+        return date_value
     try:
-        return date.fromisoformat(date_str)
+        return date.fromisoformat(date_value)
     except ValueError as exc:
         raise BadRequestException("birthday must be ISO date: YYYY-MM-DD") from exc
 
