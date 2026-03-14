@@ -218,7 +218,7 @@ async def assign_students_to_classroom(
             count += 1
 
     await db.commit()
-    return {"message": f"assigned {count} students"}
+    return {"message": "assign success"}
 
 
 @router.post("/{classroom_id}/students/remove")
