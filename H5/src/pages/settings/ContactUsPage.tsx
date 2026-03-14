@@ -1,6 +1,7 @@
-import { MessageCircle, Phone } from 'lucide-react';
+import { MessageCircle, Phone } from 'lucide-react'
 
-import { NavBar } from '@/components/layout/NavBar';
+import { NavBar } from '@/components/layout/NavBar'
+import { CONTACT_CHANNELS } from '@/lib/constants'
 
 export function ContactUsPage() {
   return (
@@ -13,8 +14,8 @@ export function ContactUsPage() {
               <Phone size={20} className="text-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold">联系电话</p>
-              <p className="text-xs text-text-tertiary">15867788239</p>
+              <p className="text-sm font-semibold text-text-primary">联系电话</p>
+              <p className="text-xs text-text-tertiary">{CONTACT_CHANNELS.servicePhone}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -22,23 +23,24 @@ export function ContactUsPage() {
               <MessageCircle size={20} className="text-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold">微信号</p>
-              <p className="text-xs text-text-tertiary">15867788239</p>
+              <p className="text-sm font-semibold text-text-primary">微信号</p>
+              <p className="text-xs text-text-tertiary">{CONTACT_CHANNELS.wechat}</p>
             </div>
           </div>
         </div>
 
         <div className="rounded-card bg-primary-lighter p-5 text-xs leading-6 text-text-secondary">
-          <p className="font-semibold text-text-primary">龙湾校区</p>
-          <p>温州市龙湾区蒲州街道达得利商场2楼清韵书院</p>
-          <p>程老师 15057735099</p>
-          <p className="mt-3 font-semibold text-text-primary">南浦校区</p>
-          <p>温州市南浦路264号新绘象清韵书院</p>
-          <p>张老师 15088982679</p>
+          {CONTACT_CHANNELS.campuses.map((campus) => (
+            <div key={campus.name} className="mb-3 last:mb-0">
+              <p className="font-semibold text-text-primary">{campus.name}</p>
+              <p>{campus.address}</p>
+              <p>{campus.contact}</p>
+            </div>
+          ))}
         </div>
 
-        <p className="text-center text-xs text-text-tertiary">客服时间：9:00-17:00（节假日休息）</p>
+        <p className="text-center text-xs text-text-tertiary">{CONTACT_CHANNELS.serviceHours}</p>
       </div>
     </div>
-  );
+  )
 }

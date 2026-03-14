@@ -1,90 +1,86 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Star } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+
 import { NavBar } from '@/components/layout/NavBar'
 import { api } from '@/lib/api'
-import type { Work } from '@/types'
+import { formatDate, GALLERY_SCOPE_LABELS, getBookName, TERM_LABELS } from '@/lib/student'
+import type { Book, Work } from '@/types'
 
 export function WorkDetailPage() {
   const { workId } = useParams<{ workId: string }>()
   const navigate = useNavigate()
+  const [books, setBooks] = useState<Book[]>([])
   const [work, setWork] = useState<Work | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!workId) return
-    setLoading(true)
-    api.getWork(workId).then(setWork).catch(() => navigate(-1)).finally(() => setLoading(false))
+
+    Promise.all([api.getWork(workId), api.getBooks()])
+      .then(([workResult, bookResult]) => {
+        setWork(workResult)
+        setBooks(bookResult.items)
+      })
+      .catch(() => navigate(-1))
+      .finally(() => setLoading(false))
   }, [workId, navigate])
 
   if (loading) {
     return (
-      <div className="w-full max-w-mobile mx-auto bg-white min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="mx-auto flex min-h-screen w-full max-w-mobile items-center justify-center bg-white">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
 
   if (!work) return null
 
+  const bookName = getBookName(books, work.bookId)
+
   return (
-    <div className="w-full max-w-mobile mx-auto bg-white min-h-screen flex flex-col">
-      <div className="h-11 flex items-center px-5 pt-3">
-        <span className="font-number font-semibold text-[15px]">9:41</span>
-      </div>
-      <NavBar title="练习详情" />
+    <div className="mx-auto flex min-h-screen w-full max-w-mobile flex-col bg-white" data-testid="h5-work-detail">
+      <NavBar title="作品详情" />
 
-      <div className="flex-1 px-5 py-3 flex flex-col gap-4">
-        {/* 标题 */}
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-medium mr-2">
-              {work.bookName || '练习'}
-            </span>
-            <span className="text-base font-bold">{work.description || '练习作品'}</span>
-          </div>
-          {work.rating !== undefined && (
-            <span className="text-primary font-bold text-sm">+{work.rating}分</span>
-          )}
-        </div>
-        <span className="text-xs text-text-tertiary">
-          {new Date(work.createdAt).toLocaleDateString('zh-CN')}
-        </span>
-
-        {/* 作品图片 */}
-        <div>
-          <h3 className="text-sm font-semibold mb-3">我的作品</h3>
-          <div className="rounded-card overflow-hidden border border-divider">
-            <img src={work.imageUrl} alt="作品" className="w-full object-cover" />
-          </div>
+      <div className="flex flex-1 flex-col gap-4 px-5 py-4">
+        <div className="overflow-hidden rounded-card border border-divider">
+          <img src={work.imageUrl} alt={work.description || '作品图片'} className="w-full object-cover" />
         </div>
 
-        {/* 教师评价 */}
-        {work.teacherComment && (
-          <div className="bg-primary-lighter rounded-card p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center">
-                <span className="text-sm">👩‍🏫</span>
-              </div>
-              <span className="text-sm font-semibold">{work.teacherName || '老师'}</span>
-              <div className="ml-auto flex gap-0.5">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <Star key={i} size={14} className={i <= (work.rating || 0) ? 'text-primary fill-primary' : 'text-gray-300'} />
-                ))}
-              </div>
+        <div className="rounded-card bg-primary-lighter p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-base font-bold text-text-primary">{work.description || `作品槽位 ${work.slotIndex}`}</div>
+              <div className="mt-1 text-xs text-text-tertiary">{formatDate(work.createdAt)}</div>
             </div>
-            <p className="text-sm text-text-secondary leading-relaxed">{work.teacherComment}</p>
-            {work.tags && work.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {work.tags.map((tag: string) => (
-                  <span key={tag} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div className="text-right">
+              <div className="font-number text-2xl font-semibold text-primary">{work.score}</div>
+              <div className="text-[11px] text-text-tertiary">作品分</div>
+            </div>
           </div>
-        )}
+        </div>
+
+        <div className="space-y-3 rounded-card bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-text-secondary">学期</span>
+            <span className="font-medium text-text-primary">{TERM_LABELS[work.term]}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-text-secondary">槽位</span>
+            <span className="font-medium text-text-primary">{work.slotIndex}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-text-secondary">展示范围</span>
+            <span className="font-medium text-text-primary">{GALLERY_SCOPE_LABELS[work.galleryScope]}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-text-secondary">关联练习册</span>
+            <span className="font-medium text-text-primary">{bookName || '--'}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-text-secondary">当前状态</span>
+            <span className="font-medium text-text-primary">{work.isActive ? '生效中' : '已失效'}</span>
+          </div>
+        </div>
       </div>
     </div>
   )

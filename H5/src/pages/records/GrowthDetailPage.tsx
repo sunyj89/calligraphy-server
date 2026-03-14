@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
-import { deriveTitle, getScoreTypeLabel } from '@/hooks/useScoreSystem'
+import { getScoreTypeLabel } from '@/hooks/useScoreSystem'
 import { SCORE_TYPE_COLORS } from '@/lib/constants'
+import { formatDate, getBookName, getScoreRecordTitle, TARGET_PART_LABELS, TERM_LABELS } from '@/lib/student'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useStudentStore } from '@/stores/student'
@@ -12,12 +13,16 @@ const TABS = [
   { key: 'homework', label: '作业' },
   { key: 'work', label: '作品' },
   { key: 'competition', label: '比赛' },
-]
+] as const
 
 export function GrowthDetailPage() {
   const student = useAuthStore((state) => state.student)
-  const { records, recordsLoading, fetchRecords } = useStudentStore()
-  const [activeTab, setActiveTab] = useState('all')
+  const { books, records, recordsLoading, fetchBooks, fetchRecords } = useStudentStore()
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['key']>('all')
+
+  useEffect(() => {
+    void fetchBooks()
+  }, [fetchBooks])
 
   useEffect(() => {
     void fetchRecords(activeTab)
@@ -27,9 +32,7 @@ export function GrowthDetailPage() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-5 py-3">
         <h1 className="text-[22px] font-semibold tracking-tight">成长明细</h1>
-        <div className="rounded-card bg-primary px-3 py-1.5 text-xs font-bold text-white">
-          总分 {student?.totalScore ?? 0}
-        </div>
+        <div className="rounded-card bg-primary px-3 py-1.5 text-xs font-bold text-white">总分 {student?.totalScore ?? 0}</div>
       </div>
 
       <div className="flex px-5">
@@ -58,28 +61,36 @@ export function GrowthDetailPage() {
           <div className="space-y-2.5">
             {records.map((record) => {
               const colors = SCORE_TYPE_COLORS[record.scoreType] || SCORE_TYPE_COLORS.practice
+              const bookName = getBookName(books, record.bookId)
+              const title = getScoreRecordTitle(record, books)
+
               return (
                 <div key={record.id} className={cn('flex items-center gap-3 rounded-input p-3.5', colors.bg)}>
-                  <div className={cn('self-stretch w-1 rounded-sm', colors.accent)} />
+                  <div className={cn('w-1 self-stretch rounded-sm', colors.accent)} />
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center gap-2">
                       <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold text-white', colors.accent)}>
                         {getScoreTypeLabel(record.scoreType)}
                       </span>
-                      <span className="truncate text-sm font-semibold text-text-primary">{deriveTitle(record)}</span>
+                      <span className="truncate text-sm font-semibold text-text-primary">{title}</span>
                     </div>
                     <div className="space-y-0.5 text-[11px] text-text-tertiary">
-                      <div>{new Date(record.createdAt).toLocaleDateString('zh-CN')}</div>
+                      <div>{formatDate(record.createdAt)}</div>
                       <div>
                         原始分 {record.rawScore ?? record.score}
                         {record.multiplier && record.multiplier > 1 ? ` · 倍率 x${record.multiplier}` : ''}
-                        {record.targetPart ? ` · ${record.targetPart === 'root' ? '树根' : '树干'}` : ''}
+                        {record.term ? ` · ${TERM_LABELS[record.term]}` : ''}
                       </div>
+                      {(record.targetPart || bookName || record.workId) && (
+                        <div>
+                          {record.targetPart ? `部位 ${TARGET_PART_LABELS[record.targetPart]}` : ''}
+                          {bookName ? `${record.targetPart ? ' · ' : ''}练习册 ${bookName}` : ''}
+                          {record.workId ? `${record.targetPart || bookName ? ' · ' : ''}作品记录` : ''}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <span className={cn('shrink-0 font-score text-xl font-semibold', colors.text)}>
-                    +{record.score}
-                  </span>
+                  <span className={cn('shrink-0 font-score text-xl font-semibold', colors.text)}>+{record.score}</span>
                 </div>
               )
             })}

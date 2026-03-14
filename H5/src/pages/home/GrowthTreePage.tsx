@@ -5,6 +5,7 @@ import { Sprout, Trophy } from 'lucide-react'
 import { api } from '@/lib/api'
 import { GROWTH_STAGES, getStageInfo } from '@/lib/constants'
 import { getStageProgress, getStageTargetScore } from '@/hooks/useScoreSystem'
+import { findStudentRank } from '@/lib/student'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import type { LeaderboardEntry } from '@/types'
@@ -18,8 +19,8 @@ export function GrowthTreePage() {
 
   useEffect(() => {
     void refreshProfile()
-    void api.getClassroomLeaderboard(5).then(setClassroomLeaderboard).catch(() => setClassroomLeaderboard([]))
-    void api.getSchoolLeaderboard(5).then(setSchoolLeaderboard).catch(() => setSchoolLeaderboard([]))
+    void api.getClassroomLeaderboard(100).then(setClassroomLeaderboard).catch(() => setClassroomLeaderboard([]))
+    void api.getSchoolLeaderboard(100).then(setSchoolLeaderboard).catch(() => setSchoolLeaderboard([]))
   }, [refreshProfile])
 
   const totalScore = student?.totalScore ?? 0
@@ -29,23 +30,35 @@ export function GrowthTreePage() {
   const targetScore = getStageTargetScore(totalScore)
   const remaining = Math.max(0, targetScore - totalScore)
   const currentStageIndex = GROWTH_STAGES.findIndex((item) => item.key === stage)
+  const classroomRank = findStudentRank(classroomLeaderboard, student?.id)
+  const schoolRank = findStudentRank(schoolLeaderboard, student?.id)
 
-  function renderLeaderboard(title: string, entries: LeaderboardEntry[]) {
+  function renderLeaderboard(title: string, entries: LeaderboardEntry[], ownRank: number | null) {
     return (
       <div className="rounded-card bg-primary-lighter p-3">
-        <div className="mb-2 flex items-center gap-2 text-sm font-bold text-text-primary">
-          <Trophy size={16} className="text-primary" />
-          {title}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold text-text-primary">
+            <Trophy size={16} className="text-primary" />
+            <span>{title}</span>
+          </div>
+          <div className="text-xs text-text-secondary">
+            我的排名：
+            <span className="ml-1 font-number font-semibold text-primary">{ownRank ? `第 ${ownRank} 名` : '未上榜'}</span>
+          </div>
         </div>
+
         {entries.length === 0 ? (
           <div className="text-xs text-text-tertiary">暂无排名数据</div>
         ) : (
           <div className="space-y-2">
-            {entries.slice(0, 3).map((entry) => (
+            {entries.slice(0, 5).map((entry) => (
               <div key={entry.id} className="flex items-center justify-between rounded-tag bg-white px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-6 text-center font-number text-sm font-bold text-primary">#{entry.rank}</span>
-                  <span className="text-sm font-medium">{entry.name}</span>
+                  <span className="w-7 text-center font-number text-sm font-bold text-primary">#{entry.rank}</span>
+                  <div>
+                    <div className="text-sm font-medium text-text-primary">{entry.name}</div>
+                    <div className="text-[11px] text-text-tertiary">{getStageInfo(entry.stage).name}</div>
+                  </div>
                 </div>
                 <span className="font-number text-sm font-semibold text-text-secondary">{entry.totalScore}</span>
               </div>
@@ -58,36 +71,46 @@ export function GrowthTreePage() {
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between px-5 py-2">
-        <h1 className="text-[22px] font-semibold tracking-tight">成长树</h1>
+      <div className="flex items-center justify-between px-5 py-3">
+        <h1 className="text-[22px] font-semibold tracking-tight">成长总览</h1>
       </div>
 
       <div className="px-5 py-1">
-        <div className="rounded-card p-3 px-4" style={{ background: 'linear-gradient(180deg, #E6F4EA 0%, #F5FBF7 100%)' }}>
-          <div className="mb-2 flex items-center justify-between">
+        <div className="rounded-card p-4" style={{ background: 'linear-gradient(180deg, #E6F4EA 0%, #F5FBF7 100%)' }}>
+          <div className="mb-3 flex items-start justify-between">
             <div>
-              <span className="text-xs text-text-secondary">当前累计总分</span>
-              <div className="flex items-baseline gap-1">
+              <div className="text-xs text-text-secondary">累计总分</div>
+              <div className="mt-1 flex items-baseline gap-1">
                 <span className="font-number text-3xl font-semibold text-text-primary">{totalScore}</span>
                 <span className="text-xs text-text-tertiary">分</span>
               </div>
             </div>
             <div className="text-right">
-              <span className="text-xs text-text-secondary">下一阶段目标</span>
-              <div className="flex items-baseline gap-1">
-                <span className="font-number text-xl font-semibold text-text-secondary">{targetScore}</span>
-                <span className="text-xs text-text-tertiary">分</span>
-              </div>
+              <div className="text-xs text-text-secondary">成长阶段</div>
+              <div className="mt-1 text-sm font-semibold text-primary">{stageInfo.name}</div>
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="h-2 overflow-hidden rounded-full bg-white">
-              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-medium text-primary">已完成 {progress}%</span>
-              <span className="text-text-tertiary">还差 {remaining} 分</span>
-            </div>
+
+          <div className="mb-2 h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-medium text-primary">阶段进度 {progress}%</span>
+            <span className="text-text-tertiary">距离下一阶段还差 {remaining} 分</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-card bg-white p-3 shadow-sm">
+            <div className="text-xs text-text-secondary">班级排名</div>
+            <div className="mt-2 font-number text-2xl font-semibold text-text-primary">{classroomRank ? `#${classroomRank}` : '--'}</div>
+          </div>
+          <div className="rounded-card bg-white p-3 shadow-sm">
+            <div className="text-xs text-text-secondary">学校排名</div>
+            <div className="mt-2 font-number text-2xl font-semibold text-text-primary">{schoolRank ? `#${schoolRank}` : '--'}</div>
           </div>
         </div>
       </div>
@@ -119,6 +142,7 @@ export function GrowthTreePage() {
               const isCurrent = item.key === stage
               const isPast = index < currentStageIndex
               const isFuture = index > currentStageIndex
+
               return (
                 <div key={item.key} className={cn('flex items-center gap-2.5 rounded-tag px-4 py-2.5', isCurrent && 'bg-primary-light')}>
                   <div
@@ -141,8 +165,8 @@ export function GrowthTreePage() {
           </div>
         </div>
 
-        {renderLeaderboard('班级排名', classroomLeaderboard)}
-        {renderLeaderboard('学校排名', schoolLeaderboard)}
+        {renderLeaderboard('班级排名', classroomLeaderboard, classroomRank)}
+        {renderLeaderboard('学校排名', schoolLeaderboard, schoolRank)}
       </div>
     </div>
   )

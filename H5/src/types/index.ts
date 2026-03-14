@@ -9,6 +9,8 @@ export type GrowthStage =
 
 export type ScoreType = 'practice' | 'homework' | 'work' | 'competition'
 export type Term = 'spring' | 'summer' | 'autumn'
+export type TargetPart = 'root' | 'trunk'
+export type GalleryScope = 'classroom' | 'school' | 'both'
 
 export interface Student {
   id: string
@@ -39,6 +41,8 @@ export interface Book {
   description?: string
   orderNum: number
   isActive?: boolean
+  isLit?: boolean
+  litScore?: number
   createdAt?: string
 }
 
@@ -51,12 +55,10 @@ export interface ScoreRecord {
   rawScore?: number
   multiplier?: number
   term?: Term
-  targetPart?: 'root' | 'trunk'
+  targetPart?: TargetPart
   bookId?: string
   workId?: string
   reason?: string
-  title?: string
-  teacherName?: string
   createdAt: string
 }
 
@@ -64,18 +66,14 @@ export interface Work {
   id: string
   studentId: string
   teacherId: string
+  bookId?: string
   term: Term
   slotIndex: 1 | 2
-  galleryScope: 'classroom' | 'school' | 'both'
+  galleryScope: GalleryScope
   imageUrl: string
   thumbnailUrl?: string
   description?: string
   score: number
-  bookName?: string
-  teacherComment?: string
-  teacherName?: string
-  rating?: number
-  tags?: string[]
   isActive: boolean
   createdAt: string
 }
@@ -100,5 +98,6 @@ export interface LeaderboardEntry {
   totalScore: number
   stage: GrowthStage
   avatar?: string
+  isSenior?: boolean
   classroomId?: string
 }

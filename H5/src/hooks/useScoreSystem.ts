@@ -35,7 +35,6 @@ export function getStageProgress(totalScore: number): number {
 }
 
 export function deriveTitle(record: ScoreRecord): string {
-  if (record.title) return record.title
   if (record.reason) return record.reason
   if (record.scoreType === 'practice') {
     return record.targetPart === 'trunk' ? '练习册树干积分' : '练习册树根积分'

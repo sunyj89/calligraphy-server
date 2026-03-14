@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, type ElementType } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Lock, MessageCircle, Settings, ShieldCheck, UserPen } from 'lucide-react'
+import { ChevronRight, Lock, MessageCircle, Settings, UserPen } from 'lucide-react'
 
-import { getStageInfo } from '@/lib/constants'
+import { CONTACT_CHANNELS, getStageInfo } from '@/lib/constants'
+import { formatDate } from '@/lib/student'
 import { useAuthStore } from '@/stores/auth'
 
 function MenuItem({
@@ -10,7 +11,7 @@ function MenuItem({
   label,
   onClick,
 }: {
-  icon: React.ElementType
+  icon: ElementType
   label: string
   onClick: () => void
 }) {
@@ -34,7 +35,7 @@ export function ProfilePage() {
   }, [refreshProfile])
 
   const stageInfo = getStageInfo(student?.stage ?? 'sprout')
-  const phone = student?.phone ? student.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : ''
+  const phone = student?.phone ? student.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '--'
 
   return (
     <div className="flex flex-col">
@@ -51,13 +52,14 @@ export function ProfilePage() {
       <div className="px-5 py-3">
         <div className="mb-4 flex items-center gap-3.5">
           <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-primary bg-primary-light text-2xl">
-            {student?.avatar ? <img src={student.avatar} alt={student.name} className="h-full w-full object-cover" /> : '书'}
+            {student?.avatar ? <img src={student.avatar} alt={student.name} className="h-full w-full object-cover" /> : '学'}
           </div>
           <div className="flex-1">
-            <h2 className="text-base font-bold">{student?.name || '学生'}</h2>
+            <h2 className="text-base font-bold text-text-primary">{student?.name || '学生'}</h2>
             <p className="mt-0.5 text-xs text-text-tertiary">{phone}</p>
           </div>
         </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-[14px] bg-primary-lighter p-3.5">
             <div className="font-number text-xl font-bold text-primary">{student?.totalScore ?? 0}</div>
@@ -77,11 +79,22 @@ export function ProfilePage() {
           </div>
           <div className="rounded-[14px] bg-white p-3.5 shadow-sm">
             <div className="text-sm font-semibold text-text-primary">生日</div>
-            <div className="mt-1 text-xs text-text-tertiary">{student?.birthday || '--'}</div>
+            <div className="mt-1 text-xs text-text-tertiary">{formatDate(student?.birthday)}</div>
           </div>
           <div className="rounded-[14px] bg-white p-3.5 shadow-sm">
             <div className="text-sm font-semibold text-text-primary">学校</div>
-            <div className="mt-1 text-xs text-text-tertiary">{student?.school || '清韵书院'}</div>
+            <div className="mt-1 text-xs text-text-tertiary">{student?.school || '--'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-2">
+        <div className="rounded-[14px] bg-primary-lighter p-4">
+          <div className="text-sm font-semibold text-text-primary">联系我们</div>
+          <div className="mt-2 text-xs leading-6 text-text-secondary">
+            <div>客服电话：{CONTACT_CHANNELS.servicePhone}</div>
+            <div>微信号：{CONTACT_CHANNELS.wechat}</div>
+            <div>{CONTACT_CHANNELS.serviceHours}</div>
           </div>
         </div>
       </div>
@@ -91,10 +104,7 @@ export function ProfilePage() {
           <MenuItem icon={UserPen} label="修改个人信息" onClick={() => navigate('/settings/profile')} />
         </div>
         <div className="rounded-[14px] bg-primary-lighter">
-          <MenuItem icon={ShieldCheck} label="隐私政策" onClick={() => navigate('/privacy-policy')} />
           <MenuItem icon={Lock} label="修改登录密码" onClick={() => navigate('/settings/password')} />
-        </div>
-        <div className="rounded-[14px] bg-primary-lighter">
           <MenuItem icon={MessageCircle} label="联系我们" onClick={() => navigate('/settings/contact')} />
         </div>
       </div>

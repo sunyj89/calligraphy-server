@@ -42,6 +42,24 @@ export const SCORE_TYPE_LABELS: Record<string, string> = {
   fruit: '比赛',
 }
 
+export const CONTACT_CHANNELS = {
+  servicePhone: '15867788239',
+  wechat: '15867788239',
+  serviceHours: '9:00-17:00，节假日休息',
+  campuses: [
+    {
+      name: '龙湾校区',
+      address: '温州市龙湾区蒲州街道达得利商场 2 楼清韵书院',
+      contact: '程老师 15057735099',
+    },
+    {
+      name: '南浦校区',
+      address: '温州市南浦路 264 号新绘象清韵书院',
+      contact: '张老师 15088982679',
+    },
+  ],
+}
+
 export function getStageInfo(stage: GrowthStage) {
   return GROWTH_STAGES.find((item) => item.key === stage) || GROWTH_STAGES[0]
 }

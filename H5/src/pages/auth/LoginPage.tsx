@@ -1,31 +1,53 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Lock, Phone, TreePine } from 'lucide-react';
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Lock, Phone, TreePine } from 'lucide-react'
 
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore } from '@/stores/auth'
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const login = useAuthStore((s) => s.login);
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const navigate = useNavigate()
+  const location = useLocation()
+  const login = useAuthStore((state) => state.login)
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [agreed, setAgreed] = useState(false)
+
+  useEffect(() => {
+    const state = location.state as { message?: string } | null
+    if (state?.message) {
+      setMessage(state.message)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate])
 
   async function handleSubmit() {
-    setError('');
-    if (!phone) return setError('请输入手机号');
-    if (!password) return setError('请输入密码');
-    if (!agreed) return setError('请先同意用户协议和隐私政策');
-    setLoading(true);
+    setError('')
+    setMessage('')
+
+    if (!phone) {
+      setError('请输入手机号')
+      return
+    }
+    if (!password) {
+      setError('请输入密码')
+      return
+    }
+    if (!agreed) {
+      setError('请先同意用户协议和隐私政策')
+      return
+    }
+
+    setLoading(true)
     try {
-      await login(phone, password);
-      navigate('/home', { replace: true });
+      await login(phone, password)
+      navigate('/home', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '登录失败');
+      setError(err instanceof Error ? err.message : '登录失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -36,7 +58,7 @@ export function LoginPage() {
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-light">
             <TreePine className="text-primary" size={44} />
           </div>
-          <h1 className="text-2xl font-bold">成长树</h1>
+          <h1 className="text-2xl font-bold text-text-primary">成长树</h1>
           <p className="text-sm text-text-tertiary">学生端账号密码登录</p>
         </div>
 
@@ -45,7 +67,7 @@ export function LoginPage() {
           <input
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(event) => setPhone(event.target.value)}
             placeholder="请输入手机号"
             className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-text-disabled"
           />
@@ -56,17 +78,18 @@ export function LoginPage() {
           <input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             placeholder="请输入密码"
             className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-text-disabled"
           />
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-text-tertiary">
-          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <label className="cursor-pointer flex items-center gap-2 text-xs text-text-tertiary">
+          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
           已阅读并同意用户协议与隐私政策
         </label>
 
+        {message && <p className="text-center text-xs text-primary">{message}</p>}
         {error && <p className="text-center text-xs text-red-500">{error}</p>}
 
         <button
@@ -78,5 +101,5 @@ export function LoginPage() {
         </button>
       </div>
     </div>
-  );
+  )
 }
