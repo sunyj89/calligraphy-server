@@ -116,9 +116,10 @@ export const api = {
       body: JSON.stringify(transformKeysToSnake(data)),
     }),
 
-  getStudents: (page = 1, pageSize = 20, search?: string) => {
+  getStudents: (page = 1, pageSize = 20, search?: string, classroomId?: string) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (search) params.append('search', search);
+    if (classroomId) params.append('classroom_id', classroomId);
     return request<PaginatedResponse<Student>>(`/students?${params}`);
   },
   getStudent: (id: string) => request<Student>(`/students/${id}`),

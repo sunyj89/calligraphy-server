@@ -16,12 +16,12 @@ interface StudentManagementProps {
 }
 
 const stageConfig: Record<GrowthStage, { label: string; color: string; icon: string; minScore: number }> = {
-  sprout: { label: '萌芽宝宝', color: 'bg-emerald-100 text-emerald-600', icon: '芽', minScore: 0 },
+  sprout: { label: '萌芽宝贝', color: 'bg-emerald-100 text-emerald-600', icon: '芽', minScore: 0 },
   seedling: { label: '努力伸展', color: 'bg-green-100 text-green-600', icon: '苗', minScore: 1500 },
-  small: { label: '撑起小伞', color: 'bg-teal-100 text-teal-600', icon: '树', minScore: 3000 },
-  medium: { label: '有模有样', color: 'bg-cyan-100 text-cyan-600', icon: '林', minScore: 4500 },
-  large: { label: '披上绿装', color: 'bg-green-100 text-green-600', icon: '冠', minScore: 6000 },
-  xlarge: { label: '绿意满满', color: 'bg-lime-100 text-lime-600', icon: '盛', minScore: 7500 },
+  small: { label: '长成小树', color: 'bg-teal-100 text-teal-600', icon: '树', minScore: 3000 },
+  medium: { label: '有模有样', color: 'bg-cyan-100 text-cyan-600', icon: '木', minScore: 4500 },
+  large: { label: '披上绿装', color: 'bg-green-100 text-green-600', icon: '林', minScore: 6000 },
+  xlarge: { label: '绿意满满', color: 'bg-lime-100 text-lime-600', icon: '森', minScore: 7500 },
   fruitful: { label: '硕果累累', color: 'bg-amber-100 text-amber-600', icon: '果', minScore: 9000 },
 };
 
@@ -42,6 +42,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
   const [newStudent, setNewStudent] = useState({
     name: '',
     phone: '',
+    password: '',
     address: '',
     school: '',
     grade: '',
@@ -106,6 +107,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
     setNewStudent({
       name: '',
       phone: '',
+      password: '',
       address: '',
       school: '',
       grade: '',
@@ -130,6 +132,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
       await api.createStudent({
         name: newStudent.name.trim(),
         phone: newStudent.phone.trim(),
+        password: newStudent.password.trim() || undefined,
         avatar: avatarUrl,
         address: newStudent.address || undefined,
         school: newStudent.school || undefined,
@@ -350,10 +353,21 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
               <Label htmlFor="phone">手机号</Label>
               <Input id="phone" value={newStudent.phone} onChange={(event) => setNewStudent((current) => ({ ...current, phone: event.target.value }))} data-testid="new-student-phone" />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">初始密码</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newStudent.password}
+                onChange={(event) => setNewStudent((current) => ({ ...current, password: event.target.value }))}
+                placeholder="不填则使用 111111"
+                data-testid="new-student-password"
+              />
+            </div>
             <div className="grid gap-2 md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="grade">年级</Label>
-                <Input id="grade" value={newStudent.grade} onChange={(event) => setNewStudent((current) => ({ ...current, grade: event.target.value }))} placeholder="例如：3" />
+                <Input id="grade" value={newStudent.grade} onChange={(event) => setNewStudent((current) => ({ ...current, grade: event.target.value }))} placeholder="例如：2" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="gender">性别</Label>

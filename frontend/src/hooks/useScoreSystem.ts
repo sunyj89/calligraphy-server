@@ -48,7 +48,7 @@ export function useScoreSystem(initialStudent: Student) {
           term: form.term,
           bookId: form.bookId,
           targetPart: inferTargetPart(bookOrderNum),
-          reason: form.remark || 'practice',
+          reason: form.remark || '练习册录分',
         });
         await refreshStudent(currentStudent.id);
         await loadRecords(currentStudent.id);

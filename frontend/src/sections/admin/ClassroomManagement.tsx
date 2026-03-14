@@ -25,12 +25,18 @@ const emptyForm: ClassroomFormState = {
   teacherId: '',
 };
 
+function getStudentClassroomLabel(student: Student, classrooms: Classroom[], currentClassroomId: string) {
+  if (!student.classroomId) return '未分班';
+  if (student.classroomId === currentClassroomId) return '当前班级';
+  return classrooms.find((item) => item.id === student.classroomId)?.name ?? '其他班级';
+}
+
 export function ClassroomManagement() {
   const { teacher } = useAuth();
   const isAdmin = teacher?.role === 'admin';
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [unassignedStudents, setUnassignedStudents] = useState<Student[]>([]);
+  const [candidateStudents, setCandidateStudents] = useState<Student[]>([]);
   const [classroomStudents, setClassroomStudents] = useState<Student[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedClassroom, setSelectedClassroom] = useState<Classroom | null>(null);
@@ -38,7 +44,10 @@ export function ClassroomManagement() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isMemberLoading, setIsMemberLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
 
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -52,10 +61,13 @@ export function ClassroomManagement() {
 
   const loadClassrooms = useCallback(async () => {
     setIsLoading(true);
+    setError('');
     try {
       const res = await api.getClassrooms(page, 20, search || undefined);
       setClassrooms(res.items);
       setTotal(res.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '班级列表加载失败');
     } finally {
       setIsLoading(false);
     }
@@ -63,9 +75,38 @@ export function ClassroomManagement() {
 
   const loadTeachers = useCallback(async () => {
     if (!isAdmin) return;
-    const res = await api.getTeachers(1, 100);
-    setTeachers(res.items);
+    try {
+      const res = await api.getTeachers(1, 100);
+      setTeachers(res.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '老师列表加载失败');
+    }
   }, [isAdmin]);
+
+  const loadClassroomStudents = useCallback(async (classroom: Classroom) => {
+    setIsMemberLoading(true);
+    try {
+      const res = await api.getClassroomStudents(classroom.id, 1, 100);
+      setClassroomStudents(res.items);
+      return res.items;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '班级成员加载失败');
+      setClassroomStudents([]);
+      return [];
+    } finally {
+      setIsMemberLoading(false);
+    }
+  }, []);
+
+  const loadCandidateStudents = useCallback(async (classroom: Classroom) => {
+    try {
+      const res = await api.getStudents(1, 200);
+      setCandidateStudents(res.items.filter((item) => item.classroomId !== classroom.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '可选学生加载失败');
+      setCandidateStudents([]);
+    }
+  }, []);
 
   useEffect(() => {
     void loadClassrooms();
@@ -76,21 +117,28 @@ export function ClassroomManagement() {
   }, [loadTeachers]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setPage(1), 300);
-    return () => clearTimeout(timer);
+    setPage(1);
   }, [search]);
 
-  function resetDialogs() {
+  function resetStatus() {
     setError('');
+    setFeedback('');
+  }
+
+  function resetSelection() {
     setSelectedStudentIds([]);
+    setCandidateStudents([]);
+    setClassroomStudents([]);
   }
 
   async function handleCreate() {
-    setError('');
+    resetStatus();
     if (!createForm.name.trim()) {
       setError('请填写班级名称');
       return;
     }
+
+    setIsSubmitting(true);
     try {
       await api.createClassroom({
         name: createForm.name.trim(),
@@ -100,38 +148,57 @@ export function ClassroomManagement() {
       });
       setCreateForm(emptyForm);
       setShowCreate(false);
+      setFeedback('班级已创建');
       await loadClassrooms();
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建班级失败');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleEdit() {
     if (!editingClassroom) return;
-    setError('');
+    resetStatus();
+
+    if (!editForm.name.trim()) {
+      setError('请填写班级名称');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       await api.updateClassroom(editingClassroom.id, {
-        name: editForm.name.trim() || undefined,
+        name: editForm.name.trim(),
         gradeYear: editForm.gradeYear || undefined,
         description: editForm.description || undefined,
         teacherId: isAdmin ? editForm.teacherId || undefined : undefined,
       });
       setShowEdit(false);
       setEditingClassroom(null);
+      setFeedback('班级信息已更新');
       await loadClassrooms();
     } catch (err) {
       setError(err instanceof Error ? err.message : '更新班级失败');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete(classroom: Classroom) {
     if (!confirm(`确认删除班级“${classroom.name}”吗？`)) return;
-    await api.deleteClassroom(classroom.id);
-    await loadClassrooms();
+    resetStatus();
+    try {
+      await api.deleteClassroom(classroom.id);
+      setFeedback('班级已删除');
+      await loadClassrooms();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除班级失败');
+    }
   }
 
   function openEditDialog(classroom: Classroom) {
-    resetDialogs();
+    resetStatus();
     setEditingClassroom(classroom);
     setEditForm({
       name: classroom.name,
@@ -143,54 +210,75 @@ export function ClassroomManagement() {
   }
 
   async function openStudentsDialog(classroom: Classroom) {
-    resetDialogs();
+    resetStatus();
+    resetSelection();
     setSelectedClassroom(classroom);
     setShowStudents(true);
-    const res = await api.getClassroomStudents(classroom.id, 1, 100);
-    setClassroomStudents(res.items);
+    await loadClassroomStudents(classroom);
   }
 
   async function openAssignDialog(classroom: Classroom) {
-    resetDialogs();
+    resetStatus();
+    resetSelection();
     setSelectedClassroom(classroom);
     setShowAssign(true);
-    const res = await api.getStudents(1, 200);
-    setUnassignedStudents(res.items.filter((item) => !item.classroomId));
+    await loadCandidateStudents(classroom);
+  }
+
+  async function refreshClassroomContext(classroom: Classroom) {
+    const updated = await api.getClassrooms(page, 20, search || undefined);
+    setClassrooms(updated.items);
+    setTotal(updated.total);
+    const nextSelected = updated.items.find((item) => item.id === classroom.id) ?? classroom;
+    setSelectedClassroom(nextSelected);
+    return nextSelected;
   }
 
   async function handleAssignStudents() {
     if (!selectedClassroom || selectedStudentIds.length === 0) return;
-    await api.assignStudentsToClassroom(selectedClassroom.id, selectedStudentIds);
-    setShowAssign(false);
-    await loadClassrooms();
+    resetStatus();
+    setIsSubmitting(true);
+    try {
+      await api.assignStudentsToClassroom(selectedClassroom.id, selectedStudentIds);
+      const nextSelected = await refreshClassroomContext(selectedClassroom);
+      await Promise.all([loadCandidateStudents(nextSelected), loadClassroomStudents(nextSelected)]);
+      setSelectedStudentIds([]);
+      setFeedback(`已为 ${nextSelected.name} 添加 ${selectedStudentIds.length} 名学生`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '添加学生失败');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handleRemoveStudent(studentId: string) {
     if (!selectedClassroom) return;
     if (!confirm('确认将该学生移出当前班级吗？')) return;
-    await api.removeStudentsFromClassroom(selectedClassroom.id, [studentId]);
-    const res = await api.getClassroomStudents(selectedClassroom.id, 1, 100);
-    setClassroomStudents(res.items);
-    await loadClassrooms();
+    resetStatus();
+    setIsSubmitting(true);
+    try {
+      await api.removeStudentsFromClassroom(selectedClassroom.id, [studentId]);
+      const nextSelected = await refreshClassroomContext(selectedClassroom);
+      await Promise.all([loadClassroomStudents(nextSelected), loadCandidateStudents(nextSelected)]);
+      setFeedback('学生已移出班级');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移除学生失败');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function toggleStudent(studentId: string) {
     setSelectedStudentIds((current) =>
-      current.includes(studentId)
-        ? current.filter((item) => item !== studentId)
-        : [...current, studentId]
+      current.includes(studentId) ? current.filter((item) => item !== studentId) : [...current, studentId]
     );
   }
 
-  function renderTeacherField(
-    value: string,
-    onChange: (value: string) => void,
-    placeholder: string
-  ) {
+  function renderTeacherField(value: string, onChange: (value: string) => void, placeholder: string) {
     if (!isAdmin) return null;
     return (
       <div className="space-y-2">
-        <Label>关联老师</Label>
+        <Label>负责老师</Label>
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -228,7 +316,7 @@ export function ClassroomManagement() {
               </div>
               <Button
                 onClick={() => {
-                  resetDialogs();
+                  resetStatus();
                   setCreateForm({
                     ...emptyForm,
                     teacherId: !isAdmin ? teacher?.id || '' : '',
@@ -242,7 +330,10 @@ export function ClassroomManagement() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div> : null}
+          {feedback ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{feedback}</div> : null}
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {classrooms.map((classroom) => (
               <Card key={classroom.id} className="border shadow-sm">
@@ -252,29 +343,35 @@ export function ClassroomManagement() {
                       <h3 className="text-lg font-semibold">{classroom.name}</h3>
                       <div className="flex items-center gap-2">
                         {classroom.gradeYear ? <Badge variant="secondary">{classroom.gradeYear} 年级</Badge> : null}
-                        <Badge variant="outline">{classroom.studentCount || 0} 名学生</Badge>
+                        <Badge variant="outline">{classroom.studentCount ?? 0} 名学生</Badge>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(classroom)}>
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(classroom)} aria-label={`编辑班级 ${classroom.name}`}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(classroom)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500"
+                        onClick={() => handleDelete(classroom)}
+                        aria-label={`删除班级 ${classroom.name}`}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
 
                   <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                    <div>班级老师：{classroom.teacher?.name || '未关联'}</div>
+                    <div>负责老师：{classroom.teacher?.name || '未关联'}</div>
                     <div>联系方式：{classroom.teacher?.phone || '--'}</div>
-                    <div className="mt-2">{classroom.description || '暂无班级描述'}</div>
+                    <div className="mt-2 line-clamp-2">{classroom.description || '暂无班级说明'}</div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={() => openStudentsDialog(classroom)}>
                       <Users className="mr-1 h-3.5 w-3.5" />
-                      班级成员
+                      查看成员
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => openAssignDialog(classroom)}>
                       <UserPlus className="mr-1 h-3.5 w-3.5" />
@@ -319,13 +416,12 @@ export function ClassroomManagement() {
             <DialogTitle>新建班级</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {error ? <div className="rounded bg-red-50 p-2 text-sm text-red-500">{error}</div> : null}
             <div className="space-y-2">
               <Label>班级名称</Label>
               <Input
                 value={createForm.name}
                 onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
-                placeholder="例如：周末提高班"
+                placeholder="例如：春季提高班"
               />
             </div>
             <div className="space-y-2">
@@ -333,16 +429,16 @@ export function ClassroomManagement() {
               <Input
                 value={createForm.gradeYear}
                 onChange={(event) => setCreateForm((current) => ({ ...current, gradeYear: event.target.value }))}
-                placeholder="例如：3"
+                placeholder="例如：2"
               />
             </div>
             {renderTeacherField(createForm.teacherId, (value) => setCreateForm((current) => ({ ...current, teacherId: value })), '选择负责老师')}
             <div className="space-y-2">
-              <Label>描述</Label>
+              <Label>班级说明</Label>
               <Input
                 value={createForm.description}
                 onChange={(event) => setCreateForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="班级特色、授课时间等"
+                placeholder="班级特点、上课时间等"
               />
             </div>
           </div>
@@ -350,7 +446,9 @@ export function ClassroomManagement() {
             <Button variant="outline" onClick={() => setShowCreate(false)}>
               取消
             </Button>
-            <Button onClick={handleCreate}>确认创建</Button>
+            <Button onClick={handleCreate} disabled={isSubmitting}>
+              确认创建
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -361,58 +459,67 @@ export function ClassroomManagement() {
             <DialogTitle>编辑班级</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {error ? <div className="rounded bg-red-50 p-2 text-sm text-red-500">{error}</div> : null}
             <div className="space-y-2">
               <Label>班级名称</Label>
-              <Input
-                value={editForm.name}
-                onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))}
-              />
+              <Input value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>年级</Label>
-              <Input
-                value={editForm.gradeYear}
-                onChange={(event) => setEditForm((current) => ({ ...current, gradeYear: event.target.value }))}
-              />
+              <Input value={editForm.gradeYear} onChange={(event) => setEditForm((current) => ({ ...current, gradeYear: event.target.value }))} />
             </div>
             {renderTeacherField(editForm.teacherId, (value) => setEditForm((current) => ({ ...current, teacherId: value })), '选择负责老师')}
             <div className="space-y-2">
-              <Label>描述</Label>
-              <Input
-                value={editForm.description}
-                onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))}
-              />
+              <Label>班级说明</Label>
+              <Input value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEdit(false)}>
               取消
             </Button>
-            <Button onClick={handleEdit}>保存修改</Button>
+            <Button onClick={handleEdit} disabled={isSubmitting}>
+              保存修改
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showStudents} onOpenChange={setShowStudents}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{selectedClassroom?.name} - 班级成员</DialogTitle>
+            <DialogTitle>
+              {selectedClassroom?.name || '班级'} 成员详情
+              {selectedClassroom ? `（${selectedClassroom.studentCount ?? classroomStudents.length} 人）` : ''}
+            </DialogTitle>
           </DialogHeader>
+
+          {selectedClassroom ? (
+            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+              <div>负责老师：{selectedClassroom.teacher?.name || '未关联'}</div>
+              <div>联系方式：{selectedClassroom.teacher?.phone || '--'}</div>
+            </div>
+          ) : null}
+
           <div className="max-h-96 space-y-2 overflow-y-auto">
-            {classroomStudents.length === 0 ? (
+            {isMemberLoading ? (
+              <div className="py-10 text-center text-gray-400">正在加载班级成员...</div>
+            ) : classroomStudents.length === 0 ? (
               <div className="py-10 text-center text-gray-400">当前班级还没有学生</div>
             ) : (
               classroomStudents.map((student) => (
                 <div key={student.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
-                  <div>
+                  <div className="space-y-1">
                     <div className="font-medium">{student.name}</div>
                     <div className="text-sm text-gray-500">
                       {student.phone} · 总分 {student.totalScore}
                     </div>
+                    <div className="text-xs text-gray-400">
+                      年级 {student.grade || '--'} · 学校 {student.school || '--'}
+                    </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleRemoveStudent(student.id)}>
-                    <UserMinus className="h-4 w-4" />
+                  <Button variant="ghost" size="sm" className="text-red-500" disabled={isSubmitting} onClick={() => handleRemoveStudent(student.id)}>
+                    <UserMinus className="mr-1 h-4 w-4" />
+                    移除
                   </Button>
                 </div>
               ))
@@ -422,26 +529,33 @@ export function ClassroomManagement() {
       </Dialog>
 
       <Dialog open={showAssign} onOpenChange={setShowAssign}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>添加学生到 {selectedClassroom?.name}</DialogTitle>
+            <DialogTitle>添加学生到 {selectedClassroom?.name || '班级'}</DialogTitle>
           </DialogHeader>
+          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+            <div>支持添加未分班学生，也支持将学生从其他班级调整到当前班级。</div>
+            <div>已选择 {selectedStudentIds.length} 名学生</div>
+          </div>
           <div className="max-h-96 space-y-2 overflow-y-auto">
-            {unassignedStudents.length === 0 ? (
-              <div className="py-10 text-center text-gray-400">当前没有未分班学生</div>
+            {candidateStudents.length === 0 ? (
+              <div className="py-10 text-center text-gray-400">当前没有可调整的学生</div>
             ) : (
-              unassignedStudents.map((student) => (
-                <label key={student.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-50 p-3">
+              candidateStudents.map((student) => (
+                <label key={student.id} className="flex cursor-pointer items-start gap-3 rounded-lg bg-slate-50 p-3">
                   <input
                     type="checkbox"
                     checked={selectedStudentIds.includes(student.id)}
                     onChange={() => toggleStudent(student.id)}
-                    className="h-4 w-4"
+                    className="mt-1 h-4 w-4"
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-1">
                     <div className="font-medium">{student.name}</div>
                     <div className="text-sm text-gray-500">
                       {student.phone} · 年级 {student.grade || '--'}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      当前归属：{selectedClassroom ? getStudentClassroomLabel(student, classrooms, selectedClassroom.id) : '未知'}
                     </div>
                   </div>
                 </label>
@@ -452,7 +566,7 @@ export function ClassroomManagement() {
             <Button variant="outline" onClick={() => setShowAssign(false)}>
               取消
             </Button>
-            <Button onClick={handleAssignStudents} disabled={selectedStudentIds.length === 0}>
+            <Button onClick={handleAssignStudents} disabled={isSubmitting || selectedStudentIds.length === 0}>
               确认添加 ({selectedStudentIds.length})
             </Button>
           </DialogFooter>
