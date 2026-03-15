@@ -5,12 +5,13 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestException, NotFoundException
+from app.core.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.core.security import hash_password
 from app.models.classroom import Classroom
 from app.models.score_record import ScoreRecord
 from app.models.student import Student
 from app.models.user import Teacher
+from app.models.work import Work
 
 
 def _uuid(value: str) -> UUID:
@@ -44,12 +45,17 @@ async def list_students(
     page_size: int = 20,
     search: Optional[str] = None,
     teacher_id: Optional[str] = None,
+    teacher_filter_id: Optional[str] = None,
     classroom_id: Optional[str] = None,
 ) -> dict:
     query = select(Student).where(Student.is_active == True)
 
-    if teacher_id:
-        query = query.where(Student.created_by == _uuid(teacher_id))
+    responsible_teacher_id = teacher_id or teacher_filter_id
+    if responsible_teacher_id:
+        query = query.join(Classroom, Classroom.id == Student.classroom_id).where(
+            Classroom.teacher_id == _uuid(responsible_teacher_id),
+            Classroom.is_active == True,
+        )
 
     if classroom_id:
         query = query.where(Student.classroom_id == _uuid(classroom_id))
@@ -72,6 +78,127 @@ async def list_students(
         "page": page,
         "page_size": page_size,
         "total_pages": (total + page_size - 1) // page_size,
+    }
+
+
+async def ensure_teacher_can_access_student(
+    student: Student,
+    teacher: Teacher,
+    db: AsyncSession,
+) -> None:
+    if teacher.role == "admin":
+        return
+    if not student.classroom_id:
+        raise ForbiddenException("forbidden")
+
+    classroom_row = await db.execute(
+        select(Classroom).where(
+            Classroom.id == student.classroom_id,
+            Classroom.is_active == True,
+        )
+    )
+    classroom = classroom_row.scalar_one_or_none()
+    if not classroom or str(classroom.teacher_id) != str(teacher.id):
+        raise ForbiddenException("forbidden")
+
+
+async def get_student_detail(student_id: str, db: AsyncSession) -> dict:
+    student = await get_student_by_id(student_id, db)
+
+    classroom = None
+    teacher = None
+    if student.classroom_id:
+        classroom_row = await db.execute(
+            select(Classroom).where(Classroom.id == student.classroom_id, Classroom.is_active == True)
+        )
+        classroom = classroom_row.scalar_one_or_none()
+
+    if student.created_by:
+        teacher_row = await db.execute(
+            select(Teacher).where(Teacher.id == student.created_by, Teacher.is_active == True)
+        )
+        teacher = teacher_row.scalar_one_or_none()
+
+    growth_rows = await db.execute(
+        select(ScoreRecord)
+        .where(ScoreRecord.student_id == student.id)
+        .order_by(ScoreRecord.created_at.desc())
+    )
+    growth_items = growth_rows.scalars().all()
+
+    work_rows = await db.execute(
+        select(Work)
+        .where(Work.student_id == student.id, Work.is_active == True)
+        .order_by(Work.created_at.desc())
+    )
+    works = work_rows.scalars().all()
+
+    return {
+        "student": {
+            "id": str(student.id),
+            "name": student.name,
+            "phone": student.phone,
+            "avatar": student.avatar,
+            "school": student.school,
+            "grade": student.grade,
+            "gender": student.gender,
+            "birthday": student.birthday.isoformat() if student.birthday else None,
+            "total_score": student.total_score,
+            "stage": student.stage,
+            "is_senior": student.is_senior,
+        },
+        "classroom": (
+            {
+                "id": str(classroom.id),
+                "name": classroom.name,
+                "grade_year": classroom.grade_year,
+            }
+            if classroom
+            else None
+        ),
+        "teacher": (
+            {
+                "id": str(teacher.id),
+                "name": teacher.name,
+                "phone": teacher.phone,
+            }
+            if teacher
+            else None
+        ),
+        "growth_detail": {
+            "items": [
+                {
+                    "id": str(item.id),
+                    "score_type": item.score_type,
+                    "score": item.score,
+                    "raw_score": item.raw_score,
+                    "term": item.term,
+                    "target_part": item.target_part,
+                    "book_id": str(item.book_id) if item.book_id else None,
+                    "work_id": str(item.work_id) if item.work_id else None,
+                    "reason": item.reason,
+                    "created_at": item.created_at.isoformat() if item.created_at else None,
+                }
+                for item in growth_items
+            ],
+            "total": len(growth_items),
+        },
+        "works": {
+            "items": [
+                {
+                    "id": str(work.id),
+                    "term": work.term,
+                    "slot_index": work.slot_index,
+                    "gallery_scope": work.gallery_scope,
+                    "image_url": work.image_url,
+                    "description": work.description,
+                    "score": work.score,
+                    "created_at": work.created_at.isoformat() if work.created_at else None,
+                }
+                for work in works
+            ],
+            "total": len(works),
+        },
     }
 
 

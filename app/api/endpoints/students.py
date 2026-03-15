@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_teacher
 from app.models.base import get_db
 from app.models.user import Teacher
-from app.schemas.student import StudentCreate, StudentListResponse, StudentResponse, StudentUpdate
+from app.schemas.student import (
+    StudentCreate,
+    StudentDetailResponse,
+    StudentListResponse,
+    StudentResponse,
+    StudentUpdate,
+)
 from app.services import audit_service, student_service
 
 router = APIRouter(prefix="/api/students", tags=["students"])
@@ -18,11 +24,21 @@ async def list_students(
     page_size: int = Query(20, ge=1, le=200),
     search: Optional[str] = Query(None),
     classroom_id: Optional[str] = Query(None),
+    teacher_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_teacher: Teacher = Depends(get_current_teacher),
 ):
-    teacher_id = None if current_teacher.role == "admin" else str(current_teacher.id)
-    return await student_service.list_students(db, page, page_size, search, teacher_id, classroom_id)
+    scoped_teacher_id = None if current_teacher.role == "admin" else str(current_teacher.id)
+    teacher_filter_id = teacher_id if current_teacher.role == "admin" else None
+    return await student_service.list_students(
+        db=db,
+        page=page,
+        page_size=page_size,
+        search=search,
+        teacher_id=scoped_teacher_id,
+        teacher_filter_id=teacher_filter_id,
+        classroom_id=classroom_id,
+    )
 
 
 @router.post("", response_model=StudentResponse)
@@ -89,7 +105,20 @@ async def get_student(
     db: AsyncSession = Depends(get_db),
     current_teacher: Teacher = Depends(get_current_teacher),
 ):
-    return await student_service.get_student_by_id(student_id, db)
+    student = await student_service.get_student_by_id(student_id, db)
+    await student_service.ensure_teacher_can_access_student(student, current_teacher, db)
+    return student
+
+
+@router.get("/{student_id}/detail", response_model=StudentDetailResponse)
+async def get_student_detail(
+    student_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_teacher: Teacher = Depends(get_current_teacher),
+):
+    student = await student_service.get_student_by_id(student_id, db)
+    await student_service.ensure_teacher_can_access_student(student, current_teacher, db)
+    return await student_service.get_student_detail(student_id, db)
 
 
 @router.put("/{student_id}", response_model=StudentResponse)

@@ -60,3 +60,71 @@ class StudentListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class StudentTeacherSummary(BaseModel):
+    id: UUID
+    name: str
+    phone: str
+
+
+class StudentClassroomSummary(BaseModel):
+    id: UUID
+    name: str
+    grade_year: Optional[str] = None
+
+
+class StudentGrowthRecord(BaseModel):
+    id: UUID
+    score_type: str
+    score: int
+    raw_score: Optional[int] = None
+    term: Optional[str] = None
+    target_part: Optional[str] = None
+    book_id: Optional[UUID] = None
+    work_id: Optional[UUID] = None
+    reason: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class StudentGrowthDetailResponse(BaseModel):
+    items: list[StudentGrowthRecord]
+    total: int
+
+
+class StudentWorkRecord(BaseModel):
+    id: UUID
+    term: str
+    slot_index: int
+    gallery_scope: str
+    image_url: str
+    description: Optional[str] = None
+    score: int
+    created_at: Optional[datetime] = None
+
+
+class StudentWorkDetailResponse(BaseModel):
+    items: list[StudentWorkRecord]
+    total: int
+
+
+class StudentDetailCore(BaseModel):
+    id: UUID
+    name: str
+    phone: str
+    avatar: Optional[str] = None
+    school: Optional[str] = None
+    grade: str
+    gender: str
+    birthday: Optional[date] = None
+    total_score: int
+    stage: str
+    is_senior: bool
+
+
+class StudentDetailResponse(BaseModel):
+    student: StudentDetailCore
+    classroom: Optional[StudentClassroomSummary] = None
+    teacher: Optional[StudentTeacherSummary] = None
+    growth_detail: StudentGrowthDetailResponse
+    works: StudentWorkDetailResponse

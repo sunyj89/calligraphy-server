@@ -7,16 +7,22 @@ from uuid import UUID
 
 async def create_log(
     db: AsyncSession,
-    teacher_id: str,
+    teacher_id: Optional[str],
     teacher_name: str,
     action: str,
     target_type: str,
     target_id: Optional[str] = None,
     detail: Optional[Any] = None,
+    account: Optional[str] = None,
+    platform: Optional[str] = None,
+    ip_address: Optional[str] = None,
 ):
     log = AuditLog(
-        teacher_id=UUID(teacher_id),
+        teacher_id=UUID(teacher_id) if teacher_id else None,
         teacher_name=teacher_name,
+        account=account,
+        platform=platform,
+        ip_address=ip_address,
         action=action,
         target_type=target_type,
         target_id=target_id,
@@ -57,3 +63,25 @@ async def get_logs(
         "page": page,
         "page_size": page_size,
     }
+
+
+async def create_login_log(
+    db: AsyncSession,
+    account: str,
+    platform: str,
+    ip_address: Optional[str],
+    actor_id: Optional[str] = None,
+    actor_name: Optional[str] = None,
+) -> AuditLog:
+    return await create_log(
+        db=db,
+        teacher_id=actor_id if platform == "teacher" else None,
+        teacher_name=actor_name or account,
+        account=account,
+        platform=platform,
+        ip_address=ip_address,
+        action="login_success",
+        target_type="auth",
+        target_id=actor_id,
+        detail={"account": account, "platform": platform, "ip_address": ip_address},
+    )

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,15 +14,33 @@ from app.schemas.user import (
     TeacherResponse,
     UpdateProfileRequest,
 )
-from app.services import auth_service
+from app.services import audit_service, auth_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
-    return await auth_service.teacher_login(request.phone, request.password, db)
+async def login(
+    request: LoginRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    payload = await auth_service.teacher_login(request.phone, request.password, db)
+    teacher = payload["teacher"]
+    ip_address = http_request.headers.get("x-forwarded-for") or (
+        http_request.client.host if http_request.client else None
+    )
+    await audit_service.create_login_log(
+        db=db,
+        account=teacher.phone,
+        platform="teacher",
+        ip_address=ip_address,
+        actor_id=str(teacher.id),
+        actor_name=teacher.name,
+    )
+    await db.commit()
+    return payload
 
 
 @router.post("/logout")

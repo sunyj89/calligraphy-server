@@ -2,10 +2,10 @@ from sqlalchemy import func, select
 
 from app.core.security import hash_password
 from app.models import Classroom, ScoreRecord, Student, StudentBookScore, Teacher, Work
-from scripts.seed_demo_data import clear_demo_data, seed_demo_data
+from scripts.seed_demo_data import DEMO_STAGE_PROFILES, clear_demo_data, seed_demo_data
 
 
-async def test_demo_seed_creates_rich_uat_dataset(db):
+async def test_demo_seed_creates_stage_coverage_dataset(db):
     await seed_demo_data(db)
 
     teacher_count = (
@@ -23,59 +23,111 @@ async def test_demo_seed_creates_rich_uat_dataset(db):
             select(func.count()).select_from(Student).where(Student.phone.like("1379%"))
         )
     ).scalar_one()
-    work_count = (await db.execute(select(func.count()).select_from(Work))).scalar_one()
-    score_count = (await db.execute(select(func.count()).select_from(ScoreRecord))).scalar_one()
+    work_count = (
+        await db.execute(
+            select(func.count()).select_from(Work).where(Work.is_active == True)
+        )
+    ).scalar_one()
+    score_count = (
+        await db.execute(select(func.count()).select_from(ScoreRecord))
+    ).scalar_one()
     grade_count = (
         await db.execute(select(func.count(func.distinct(Student.grade))).where(Student.phone.like("1379%")))
     ).scalar_one()
-    stage_count = (
-        await db.execute(select(func.count(func.distinct(Student.stage))).where(Student.phone.like("1379%")))
-    ).scalar_one()
-    lit_book_count = (
-        await db.execute(select(func.count()).select_from(StudentBookScore))
-    ).scalar_one()
+    stage_values = (
+        await db.execute(select(Student.stage).where(Student.phone.like("1379%")))
+    ).scalars().all()
+    lit_book_count = (await db.execute(select(func.count()).select_from(StudentBookScore))).scalar_one()
     work_score_count = (
         await db.execute(
             select(func.count()).select_from(ScoreRecord).where(ScoreRecord.score_type == "work")
         )
     ).scalar_one()
 
-    assert teacher_count >= 3
-    assert classroom_count >= 6
-    assert student_count >= 18
-    assert work_count >= 8
-    assert score_count >= 40
-    assert grade_count >= 4
-    assert stage_count >= 4
-    assert lit_book_count >= 12
-    assert work_score_count >= 8
+    assert teacher_count == 4
+    assert classroom_count == 4
+    assert student_count == 7
+    assert work_count >= 7
+    assert score_count > 0
+    assert grade_count >= 3
+    assert set(stage_values) == {"sprout", "seedling", "small", "medium", "large", "xlarge", "fruitful"}
+    assert lit_book_count >= 7
+    assert work_score_count >= 7
 
 
-async def test_demo_seed_covers_lit_and_unlit_books_and_multiple_rankings(db):
+async def test_demo_seed_keeps_growth_totals_consistent_and_covers_lit_unlit(db):
     await seed_demo_data(db)
 
     demo_students = (
         await db.execute(select(Student).where(Student.phone.like("1379%")).order_by(Student.total_score.desc()))
     ).scalars().all()
-    classroom_students = [student for student in demo_students if student.classroom_id is not None]
-    unassigned_students = [student for student in demo_students if student.classroom_id is None]
-    stage_set = {student.stage for student in demo_students}
+
+    expected_total_by_name = {item["name"]: item["target_total"] for item in DEMO_STAGE_PROFILES}
+    for student in demo_students:
+        assert student.name in expected_total_by_name
+        assert student.total_score == expected_total_by_name[student.name]
+
+        root_total = (
+            await db.execute(
+                select(func.coalesce(func.sum(StudentBookScore.current_score), 0)).where(
+                    StudentBookScore.student_id == student.id,
+                    StudentBookScore.target_part == "root",
+                )
+            )
+        ).scalar_one()
+        trunk_total = (
+            await db.execute(
+                select(func.coalesce(func.sum(StudentBookScore.current_score), 0)).where(
+                    StudentBookScore.student_id == student.id,
+                    StudentBookScore.target_part == "trunk",
+                )
+            )
+        ).scalar_one()
+        homework_total = (
+            await db.execute(
+                select(func.coalesce(func.sum(ScoreRecord.score), 0)).where(
+                    ScoreRecord.student_id == student.id,
+                    ScoreRecord.score_type == "homework",
+                )
+            )
+        ).scalar_one()
+        competition_total = (
+            await db.execute(
+                select(func.coalesce(func.sum(ScoreRecord.score), 0)).where(
+                    ScoreRecord.student_id == student.id,
+                    ScoreRecord.score_type == "competition",
+                )
+            )
+        ).scalar_one()
+        active_work_scores = (
+            await db.execute(
+                select(func.coalesce(func.sum(Work.score), 0)).where(
+                    Work.student_id == student.id,
+                    Work.is_active == True,
+                )
+            )
+        ).scalar_one()
+        assert student.total_score == int(
+            root_total + trunk_total + homework_total + competition_total + active_work_scores
+        )
+
     lit_counts = {
         str(student.id): (
             await db.execute(
                 select(func.count())
                 .select_from(StudentBookScore)
-                .where(StudentBookScore.student_id == student.id)
+                .where(
+                    StudentBookScore.student_id == student.id,
+                    StudentBookScore.max_single_score >= 50,
+                )
             )
         ).scalar_one()
         for student in demo_students
     }
 
-    assert len(classroom_students) >= 12
-    assert len(unassigned_students) >= 2
-    assert {"sprout", "seedling", "small", "medium"}.issubset(stage_set)
-    assert any(count == 0 for count in lit_counts.values())
+    assert all(student.classroom_id is not None for student in demo_students)
     assert any(count > 0 for count in lit_counts.values())
+    assert any(count == 0 for count in lit_counts.values())
 
 
 async def test_demo_cleanup_only_removes_demo_records(db):
