@@ -1,5 +1,7 @@
 from pathlib import Path
+from io import BytesIO
 
+from PIL import Image
 from sqlalchemy import func, select
 
 from app.main import UPLOADS_DIR
@@ -217,6 +219,7 @@ async def test_demo_work_images_are_accessible(client, db):
         response = await client.get(work.image_url)
         assert response.status_code == 200
         assert response.headers.get("content-type", "").startswith("image/")
+        Image.open(BytesIO(response.content)).verify()
 
 
 async def test_demo_cleanup_removes_only_demo_upload_assets_and_seed_restores_them(client, db):
