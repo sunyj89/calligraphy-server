@@ -108,7 +108,7 @@ export function ClassroomManagement() {
 
   const loadCandidateStudents = useCallback(async (classroom: Classroom) => {
     try {
-      const res = await api.getStudents(1, 200);
+      const res = await api.getStudents(1, 100);
       setCandidateStudents(res.items.filter((item) => item.classroomId !== classroom.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : '可选学生加载失败');

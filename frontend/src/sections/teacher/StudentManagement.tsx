@@ -81,7 +81,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
   const teacherOptions = useMemo(() => teachers.filter((item) => item.role === 'teacher'), [teachers]);
 
   const loadStudents = useCallback(async (search?: string, classroomId?: string, teacherId?: string) => {
-    const response = await api.getStudents(1, 200, search || undefined, classroomId || undefined, teacherId || undefined);
+    const response = await api.getStudents(1, 100, search || undefined, classroomId || undefined, teacherId || undefined);
     setStudents(response.items);
   }, []);
 
@@ -91,7 +91,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
   }, []);
 
   const loadClassrooms = useCallback(async () => {
-    const response = await api.getClassrooms(1, 200);
+    const response = await api.getClassrooms(1, 100);
     setClassrooms(response.items);
   }, []);
 
@@ -101,7 +101,7 @@ export function StudentManagement({ onSelectStudent }: StudentManagementProps) {
       return;
     }
     try {
-      const response = await api.getTeachers(1, 200);
+      const response = await api.getTeachers(1, 100);
       setTeachers(response.items);
     } catch {
       setTeachers([]);
