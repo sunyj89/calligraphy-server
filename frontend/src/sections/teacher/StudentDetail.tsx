@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { getScoreTypeLabel } from '@/hooks/useScoreSystem';
-import { api } from '@/lib/api';
+import { api, type StudentDetailAggregate } from '@/lib/api';
 import type { Classroom, LeaderboardEntry, PracticeTarget, ScoreRecord, Student, Term, Work } from '@/types';
 
 interface Book {
@@ -115,6 +115,7 @@ function buildWorkSlots(works: Work[]) {
 export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [detailContext, setDetailContext] = useState<StudentDetailAggregate | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [records, setRecords] = useState<ScoreRecord[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
@@ -148,33 +149,34 @@ export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
     setRankNotice('');
 
     try {
-      const [studentRes, classroomRes, bookRes, scoreRes, workRes] = await Promise.all([
-        api.getStudent(student.id),
+      const [detailRes, classroomRes, bookRes, scoreRes, workRes] = await Promise.all([
+        api.getStudentDetail(student.id),
         api.getClassrooms(1, 100),
         api.getBooks(),
         api.getStudentScores(student.id, 1, 100, undefined, activeTerm),
         api.getStudentWorks(student.id, 1, 20, activeTerm),
       ]);
 
-      setCurrentStudent(studentRes);
+      setCurrentStudent(detailRes.student);
+      setDetailContext(detailRes);
       setClassrooms(classroomRes.items);
       setBooks(bookRes.items as Book[]);
-      setRecords(scoreRes.items);
-      setWorks(workRes.items);
+      setRecords(scoreRes.items.length > 0 ? scoreRes.items : detailRes.growthDetail.items);
+      setWorks(workRes.items.length > 0 ? workRes.items : detailRes.works.items);
 
       if (!bookId && bookRes.items.length > 0) {
         setBookId(bookRes.items[0].id);
       }
 
-      onStudentUpdated?.(studentRes);
+      onStudentUpdated?.(detailRes.student);
 
       const rankTasks: Promise<void>[] = [];
 
-      if (studentRes.classroomId) {
+      if (detailRes.student.classroomId) {
         rankTasks.push(
           api
-            .getLeaderboard(100, studentRes.classroomId)
-            .then((entries) => setClassRank(getRankFromLeaderboard(entries, studentRes.id)))
+            .getLeaderboard(100, detailRes.student.classroomId)
+            .then((entries) => setClassRank(getRankFromLeaderboard(entries, detailRes.student.id)))
             .catch(() => {
               setClassRank(null);
               setRankNotice('排行榜接口暂不可用时，将只显示基础资料。');
@@ -187,7 +189,7 @@ export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
       rankTasks.push(
         api
           .getSchoolLeaderboard(100)
-          .then((entries) => setSchoolRank(getRankFromLeaderboard(entries, studentRes.id)))
+          .then((entries) => setSchoolRank(getRankFromLeaderboard(entries, detailRes.student.id)))
           .catch(() => {
             setSchoolRank(null);
             setRankNotice('排行榜接口暂不可用时，将只显示基础资料。');
@@ -314,7 +316,16 @@ export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
 
   const profileItems = [
     { label: '手机号', value: currentStudent.phone, icon: User },
-    { label: '所在班级', value: getClassroomName(classrooms, currentStudent.classroomId), icon: Users },
+    {
+      label: '所在班级',
+      value: detailContext?.classroom?.name || getClassroomName(classrooms, currentStudent.classroomId),
+      icon: Users,
+    },
+    {
+      label: '负责老师',
+      value: detailContext?.teacher?.name || '未关联老师',
+      icon: User,
+    },
     { label: '学校', value: currentStudent.school || '--', icon: BookOpen },
     { label: '年级 / 性别', value: `${currentStudent.grade || '--'} / ${getGenderLabel(currentStudent.gender)}`, icon: Trees },
   ];
@@ -344,7 +355,7 @@ export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             {profileItems.map((item) => (
               <div key={item.label} className="rounded-lg bg-slate-50 p-3">
                 <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -391,7 +402,7 @@ export function StudentDetail({ student, onBack, onStudentUpdated }: Props) {
               地址：{currentStudent.address || '--'}
             </div>
             <div className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-600">
-              当前阶段：{currentStudent.stage}
+              当前阶段：{currentStudent.stage}（{currentStudent.isSenior ? '资深学员' : '成长中'}）
             </div>
           </div>
         </CardContent>

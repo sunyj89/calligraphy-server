@@ -97,6 +97,22 @@ export interface PaginatedResponse<T> {
   pageSize?: number;
 }
 
+export interface StudentDetailAggregate {
+  student: Student;
+  classroom?: {
+    id: string;
+    name: string;
+    gradeYear?: string;
+  } | null;
+  teacher?: {
+    id: string;
+    name: string;
+    phone?: string;
+  } | null;
+  growthDetail: PaginatedResponse<ScoreRecord>;
+  works: PaginatedResponse<Work>;
+}
+
 export const api = {
   login: (phone: string, password: string) =>
     request<LoginResponse>('/auth/login', {
@@ -116,13 +132,21 @@ export const api = {
       body: JSON.stringify(transformKeysToSnake(data)),
     }),
 
-  getStudents: (page = 1, pageSize = 20, search?: string, classroomId?: string) => {
+  getStudents: (
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    classroomId?: string,
+    teacherId?: string
+  ) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (search) params.append('search', search);
     if (classroomId) params.append('classroom_id', classroomId);
+    if (teacherId) params.append('teacher_id', teacherId);
     return request<PaginatedResponse<Student>>(`/students?${params}`);
   },
   getStudent: (id: string) => request<Student>(`/students/${id}`),
+  getStudentDetail: (id: string) => request<StudentDetailAggregate>(`/students/${id}/detail`),
   createStudent: (data: {
     name: string;
     phone: string;

@@ -37,6 +37,7 @@ export function ClassroomManagement() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [candidateStudents, setCandidateStudents] = useState<Student[]>([]);
+  const [assignSearch, setAssignSearch] = useState('');
   const [classroomStudents, setClassroomStudents] = useState<Student[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedClassroom, setSelectedClassroom] = useState<Classroom | null>(null);
@@ -58,6 +59,13 @@ export function ClassroomManagement() {
   const [editingClassroom, setEditingClassroom] = useState<Classroom | null>(null);
 
   const teacherOptions = useMemo(() => teachers.filter((item) => item.role === 'teacher'), [teachers]);
+  const filteredCandidates = useMemo(() => {
+    const keyword = assignSearch.trim().toLowerCase();
+    if (!keyword) return candidateStudents;
+    return candidateStudents.filter((student) => {
+      return student.name.toLowerCase().includes(keyword) || student.phone.toLowerCase().includes(keyword);
+    });
+  }, [candidateStudents, assignSearch]);
 
   const loadClassrooms = useCallback(async () => {
     setIsLoading(true);
@@ -220,6 +228,7 @@ export function ClassroomManagement() {
   async function openAssignDialog(classroom: Classroom) {
     resetStatus();
     resetSelection();
+    setAssignSearch('');
     setSelectedClassroom(classroom);
     setShowAssign(true);
     await loadCandidateStudents(classroom);
@@ -272,6 +281,19 @@ export function ClassroomManagement() {
     setSelectedStudentIds((current) =>
       current.includes(studentId) ? current.filter((item) => item !== studentId) : [...current, studentId]
     );
+  }
+
+  function selectAllVisibleCandidates() {
+    const visibleIds = filteredCandidates.map((student) => student.id);
+    setSelectedStudentIds((current) => {
+      const set = new Set([...current, ...visibleIds]);
+      return [...set];
+    });
+  }
+
+  function clearVisibleSelections() {
+    const visibleIdSet = new Set(filteredCandidates.map((student) => student.id));
+    setSelectedStudentIds((current) => current.filter((id) => !visibleIdSet.has(id)));
   }
 
   function renderTeacherField(value: string, onChange: (value: string) => void, placeholder: string) {
@@ -537,11 +559,35 @@ export function ClassroomManagement() {
             <div>支持添加未分班学生，也支持将学生从其他班级调整到当前班级。</div>
             <div>已选择 {selectedStudentIds.length} 名学生</div>
           </div>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={assignSearch}
+                onChange={(event) => setAssignSearch(event.target.value)}
+                placeholder="搜索学生姓名或手机号"
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-600">
+              <div>
+                当前可见 {filteredCandidates.length} 人，已选择 {selectedStudentIds.length} 人
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={selectAllVisibleCandidates} disabled={filteredCandidates.length === 0}>
+                  全选当前结果
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={clearVisibleSelections} disabled={filteredCandidates.length === 0}>
+                  清空当前结果选择
+                </Button>
+              </div>
+            </div>
+          </div>
           <div className="max-h-96 space-y-2 overflow-y-auto">
-            {candidateStudents.length === 0 ? (
+            {filteredCandidates.length === 0 ? (
               <div className="py-10 text-center text-gray-400">当前没有可调整的学生</div>
             ) : (
-              candidateStudents.map((student) => (
+              filteredCandidates.map((student) => (
                 <label key={student.id} className="flex cursor-pointer items-start gap-3 rounded-lg bg-slate-50 p-3">
                   <input
                     type="checkbox"
@@ -567,7 +613,7 @@ export function ClassroomManagement() {
               取消
             </Button>
             <Button onClick={handleAssignStudents} disabled={isSubmitting || selectedStudentIds.length === 0}>
-              确认添加 ({selectedStudentIds.length})
+              批量添加已选学生 ({selectedStudentIds.length})
             </Button>
           </DialogFooter>
         </DialogContent>
