@@ -190,3 +190,22 @@ async def test_demo_cleanup_only_removes_demo_records(db):
     assert remaining_organic is not None
     assert remaining_organic_student is not None
     assert remaining_organic_classroom is not None
+
+
+async def test_demo_work_images_are_accessible(client, db):
+    await seed_demo_data(db)
+
+    works = (
+        await db.execute(
+            select(Work)
+            .where(Work.is_active == True)
+            .order_by(Work.created_at.asc())
+        )
+    ).scalars().all()
+    assert works
+
+    for work in works:
+        assert work.image_url.startswith("/uploads/demo-")
+        response = await client.get(work.image_url)
+        assert response.status_code == 200
+        assert response.headers.get("content-type", "").startswith("image/")

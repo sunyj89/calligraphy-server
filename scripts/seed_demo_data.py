@@ -1,5 +1,7 @@
 import asyncio
+import base64
 from datetime import date
+from pathlib import Path
 from typing import Iterable
 from uuid import UUID
 
@@ -56,6 +58,36 @@ DEMO_STAGE_PROFILES = [
     {"name": "\u5468\u5955\u8fb0", "gender": "male", "target_total": 9500, "term": "autumn"},
 ]
 
+# 1x1 jpeg pixel, used as stable demo image payload.
+DEMO_IMAGE_BYTES = base64.b64decode(
+    b"/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxAQEBUQEA8VFRUVFRUVFRUVFRUVFRUWFhUX"
+    b"FRUYHSggGBolGxUVITEhJSkrLi4uFx8zODMsNygtLisBCgoKDg0OGhAQGi0fHyUtLS0tLS0t"
+    b"LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAAEAAQMBEQAC"
+    b"EQEDEQH/xAAbAAEAAgMBAQAAAAAAAAAAAAAABQYBBAcDAv/EADYQAAIBAwMCAwQIBwAAAAAAAA"
+    b"ECAwAEEQUSITFBBhMiUWFxgZGxwdEjQrHB0fAVQmL/xAAZAQADAQEBAAAAAAAAAAAAAAAAAQID"
+    b"BAX/xAAjEQACAgICAgICAwAAAAAAAAAAAQIRAxIhMQQTQVEiMmFx/9oADAMBAAIRAxEAPwD6sA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/2Q=="
+)
+DEMO_IMAGE_FILENAMES = [
+    "demo-1-slot1.jpg",
+    "demo-1-slot2.jpg",
+    "demo-2-slot1.jpg",
+    "demo-3-slot1.jpg",
+    "demo-3-slot2.jpg",
+    "demo-4-slot1.jpg",
+    "demo-5-slot1.jpg",
+    "demo-5-slot2.jpg",
+    "demo-6-slot1.jpg",
+    "demo-7-slot1.jpg",
+    "demo-7-slot2.jpg",
+]
+
 
 def _demo_student_phone(index: int) -> str:
     return f"{DEMO_STUDENT_PHONE_PREFIX}{index:04d}"
@@ -72,6 +104,15 @@ async def _current_total(student_id: str, db: AsyncSession) -> int:
 
 def _extract_ids(query_rows: Iterable) -> list:
     return [row[0] for row in query_rows]
+
+
+def _ensure_demo_upload_assets() -> None:
+    uploads_dir = Path(__file__).resolve().parent.parent / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    for filename in DEMO_IMAGE_FILENAMES:
+        target = uploads_dir / filename
+        if not target.exists():
+            target.write_bytes(DEMO_IMAGE_BYTES)
 
 
 async def clear_demo_data(db: AsyncSession) -> None:
@@ -212,6 +253,7 @@ async def _seed_student_growth(
 
 
 async def seed_demo_data(db: AsyncSession) -> None:
+    _ensure_demo_upload_assets()
     await clear_demo_data(db)
 
     teachers: list[Teacher] = []
