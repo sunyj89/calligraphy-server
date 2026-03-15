@@ -1,8 +1,16 @@
+from pathlib import Path
+
 from sqlalchemy import func, select
 
+from app.main import UPLOADS_DIR
 from app.core.security import hash_password
 from app.models import Classroom, ScoreRecord, Student, StudentBookScore, Teacher, Work
-from scripts.seed_demo_data import DEMO_STAGE_PROFILES, clear_demo_data, seed_demo_data
+from scripts.seed_demo_data import (
+    DEMO_IMAGE_FILENAMES,
+    DEMO_STAGE_PROFILES,
+    clear_demo_data,
+    seed_demo_data,
+)
 
 
 async def test_demo_seed_creates_stage_coverage_dataset(db):
@@ -209,3 +217,40 @@ async def test_demo_work_images_are_accessible(client, db):
         response = await client.get(work.image_url)
         assert response.status_code == 200
         assert response.headers.get("content-type", "").startswith("image/")
+
+
+async def test_demo_cleanup_removes_only_demo_upload_assets_and_seed_restores_them(client, db):
+    uploads_dir = Path(UPLOADS_DIR)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    organic_file = uploads_dir / "organic-upload.jpg"
+    if organic_file.exists():
+        organic_file.unlink()
+    organic_file.write_bytes(b"organic")
+
+    try:
+        await seed_demo_data(db)
+        assert organic_file.exists()
+
+        for filename in DEMO_IMAGE_FILENAMES:
+            assert (uploads_dir / filename).exists()
+
+        await clear_demo_data(db)
+
+        for filename in DEMO_IMAGE_FILENAMES:
+            demo_path = uploads_dir / filename
+            assert not demo_path.exists()
+            response = await client.get(f"/uploads/{filename}")
+            assert response.status_code == 404
+
+        assert organic_file.exists()
+
+        await seed_demo_data(db)
+
+        for filename in DEMO_IMAGE_FILENAMES:
+            demo_path = uploads_dir / filename
+            assert demo_path.exists()
+            response = await client.get(f"/uploads/{filename}")
+            assert response.status_code == 200
+    finally:
+        if organic_file.exists():
+            organic_file.unlink()

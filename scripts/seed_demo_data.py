@@ -115,6 +115,14 @@ def _ensure_demo_upload_assets() -> None:
             target.write_bytes(DEMO_IMAGE_BYTES)
 
 
+def _clear_demo_upload_assets() -> None:
+    uploads_dir = Path(__file__).resolve().parent.parent / "uploads"
+    for filename in DEMO_IMAGE_FILENAMES:
+        target = uploads_dir / filename
+        if target.exists() and target.is_file():
+            target.unlink()
+
+
 async def clear_demo_data(db: AsyncSession) -> None:
     teacher_ids = _extract_ids(
         (
@@ -161,6 +169,7 @@ async def clear_demo_data(db: AsyncSession) -> None:
     if teacher_ids:
         await db.execute(delete(Teacher).where(Teacher.id.in_(teacher_ids)))
     await db.commit()
+    _clear_demo_upload_assets()
 
 
 async def _seed_student_growth(
@@ -253,8 +262,8 @@ async def _seed_student_growth(
 
 
 async def seed_demo_data(db: AsyncSession) -> None:
-    _ensure_demo_upload_assets()
     await clear_demo_data(db)
+    _ensure_demo_upload_assets()
 
     teachers: list[Teacher] = []
     for item in DEMO_TEACHERS:
