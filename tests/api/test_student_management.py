@@ -167,6 +167,52 @@ async def test_student_detail_returns_aggregate_payload(client, db):
     assert payload["works"]["total"] == len(work_count)
 
 
+async def test_student_detail_teacher_is_classroom_responsible_teacher_not_creator(client, db):
+    classroom_teacher_token = await login_teacher(client)
+    classroom_teacher = (await db.execute(select(Teacher).where(Teacher.phone == "13800000000"))).scalar_one()
+
+    creator_teacher = Teacher(
+        name="Teacher Creator",
+        phone="13800000019",
+        password_hash=hash_password("123456"),
+        role="teacher",
+    )
+    db.add(creator_teacher)
+    await db.flush()
+
+    class_for_semantic = Classroom(
+        name="Semantic Class",
+        grade_year="2",
+        teacher_id=classroom_teacher.id,
+        description="semantic class",
+    )
+    db.add(class_for_semantic)
+    await db.flush()
+
+    student = Student(
+        name="Semantic Student",
+        phone="13700000019",
+        password_hash=hash_password("111111"),
+        grade="2",
+        gender="female",
+        classroom_id=class_for_semantic.id,
+        created_by=creator_teacher.id,
+    )
+    db.add(student)
+    await db.commit()
+
+    detail_resp = await client.get(
+        f"/api/students/{student.id}/detail",
+        headers={"Authorization": f"Bearer {classroom_teacher_token}"},
+    )
+    assert detail_resp.status_code == 200
+    payload = detail_resp.json()
+
+    assert payload["teacher"]["id"] == str(classroom_teacher.id)
+    assert payload["teacher"]["phone"] == "13800000000"
+    assert payload["teacher"]["id"] != str(creator_teacher.id)
+
+
 async def test_teacher_cannot_access_student_outside_own_classroom(client, db):
     owner_teacher = Teacher(
         name="Teacher Owner",

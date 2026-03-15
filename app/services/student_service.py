@@ -113,9 +113,9 @@ async def get_student_detail(student_id: str, db: AsyncSession) -> dict:
         )
         classroom = classroom_row.scalar_one_or_none()
 
-    if student.created_by:
+    if classroom and classroom.teacher_id:
         teacher_row = await db.execute(
-            select(Teacher).where(Teacher.id == student.created_by, Teacher.is_active == True)
+            select(Teacher).where(Teacher.id == classroom.teacher_id, Teacher.is_active == True)
         )
         teacher = teacher_row.scalar_one_or_none()
 
